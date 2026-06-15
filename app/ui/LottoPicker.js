@@ -38,8 +38,6 @@ async function readJsonResponse(response) {
 export default function LottoPicker() {
   const [count, setCount] = useState(5);
   const [historyLimit, setHistoryLimit] = useState(300);
-  const [seed, setSeed] = useState('');
-  const [attempts, setAttempts] = useState(3000);
   const [status, setStatus] = useState('대기');
   const [summary, setSummary] = useState('아직 번호를 생성하지 않았습니다.');
   const [error, setError] = useState('');
@@ -63,8 +61,6 @@ export default function LottoPicker() {
         body: JSON.stringify({
           count,
           historyLimit,
-          attempts,
-          seed: seed ? Number(seed) : undefined,
         }),
       });
 
@@ -116,22 +112,9 @@ export default function LottoPicker() {
               </select>
             </label>
 
-            <label>
-              랜덤 시드
-              <input type="number" value={seed} onChange={(e) => setSeed(e.target.value)} placeholder="비우면 매번 다르게" />
-            </label>
-
-            <label>
-              후보 탐색 수
-              <input
-                type="number"
-                min="500"
-                max="20000"
-                step="500"
-                value={attempts}
-                onChange={(e) => setAttempts(Number(e.target.value))}
-              />
-            </label>
+            <div className="summary">
+              자주 나온 수와 적게 나온 수, 최근성, 장기 미출현, 동반 출현, 합계/홀짝 밸런스를 점수화해 상위 조합을 계산합니다.
+            </div>
           </div>
 
           <div className="actions">
@@ -151,7 +134,7 @@ export default function LottoPicker() {
           <div className="panel-heading">
             <div>
               <p className="panel-kicker">Picks</p>
-              <h2>추천 조합</h2>
+              <h2>분석 상위 조합</h2>
             </div>
           </div>
 
