@@ -36,42 +36,29 @@ async function readJsonResponse(response) {
 }
 
 export default function LottoPicker() {
-  const [count, setCount] = useState(5);
-  const [status, setStatus] = useState('대기');
-  const [summary, setSummary] = useState('아직 번호를 생성하지 않았습니다.');
+  const [status, setStatus] = useState('불러오는 중');
+  const [summary, setSummary] = useState('이번 주 추천 기록을 불러오는 중입니다.');
   const [error, setError] = useState('');
-  const [picks, setPicks] = useState([]);
   const [predictions, setPredictions] = useState([]);
 
   async function loadPredictions() {
-    const response = await fetch('/api/predictions');
-    const data = await readJsonResponse(response);
-    setPredictions(data.predictions || []);
-  }
-
-  async function generate() {
-    setStatus('계산');
+    setStatus('불러오는 중');
     setError('');
-
     try {
-      const response = await fetch('/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          count,
-        }),
-      });
-
+      const response = await fetch('/api/predictions');
       const data = await readJsonResponse(response);
       if (!response.ok) {
-        throw new Error(data.error || '번호 생성 실패');
+        throw new Error(data.error || '추천 기록 조회 실패');
       }
 
-      setPicks(data.picks || []);
+      const nextPredictions = data.predictions || [];
+      setPredictions(nextPredictions);
       setSummary(
-        `${data.history.firstDraw}회 ~ ${data.history.latestDraw}회, ${data.history.count}개 회차 기준으로 계산했습니다.`,
+        nextPredictions.length
+          ? `${nextPredictions[0].target_draw_no}회차 추천 기록을 불러왔습니다.`
+          : '아직 저장된 추천 기록이 없습니다. Vercel Cron 또는 수동 cron 호출로 첫 추천을 생성하세요.',
       );
-      setStatus('완료');
+      setStatus(nextPredictions.length ? '준비 완료' : '기록 없음');
     } catch (err) {
       setStatus('오류');
       setError(err.message);
@@ -88,27 +75,18 @@ export default function LottoPicker() {
         <article className="panel">
           <div className="panel-heading">
             <div>
-              <p className="panel-kicker">Settings</p>
-              <h2>이번 주 조합 만들기</h2>
+              <p className="panel-kicker">Weekly Picks</p>
+              <h2>이번 주 저장된 추천</h2>
             </div>
             <span className="status-badge">{status}</span>
           </div>
 
-          <div className="field-grid">
-            <label>
-              조합 수
-              <input type="number" min="1" max="20" value={count} onChange={(e) => setCount(Number(e.target.value))} />
-            </label>
-
-            <div className="summary">
-              1회부터 최신 회차까지 전체 당첨번호를 기준으로 자주 나온 수와 적게 나온 수, 최근성, 장기 미출현, 동반 출현, 합계/홀짝 밸런스를 점수화합니다.
-            </div>
-          </div>
+          <p className="summary">
+            Vercel Cron이 매주 한 번 전체 회차 데이터를 분석해 Supabase에 추천 번호 5조합을 저장합니다.
+            화면은 저장된 추천과 추첨 후 검증 결과만 불러옵니다.
+          </p>
 
           <div className="actions">
-            <button type="button" onClick={generate} disabled={status === '계산'}>
-              번호 생성
-            </button>
             <button className="secondary" type="button" onClick={loadPredictions}>
               기록 새로고침
             </button>
@@ -122,13 +100,13 @@ export default function LottoPicker() {
           <div className="panel-heading">
             <div>
               <p className="panel-kicker">Picks</p>
-              <h2>분석 상위 조합</h2>
+              <h2>{predictions[0] ? `${predictions[0].target_draw_no}회차 추천` : '추천 대기'}</h2>
             </div>
           </div>
 
           <ol className="result-list">
-            {picks.length ? (
-              picks.map((pick, index) => (
+            {predictions[0]?.picks?.length ? (
+              predictions[0].picks.map((pick, index) => (
                 <li key={pick.join('-')} className="result-item">
                   <div className="result-meta">
                     <span>Pick {index + 1}</span>
@@ -138,7 +116,7 @@ export default function LottoPicker() {
                 </li>
               ))
             ) : (
-              <li className="empty-state">번호 생성 버튼을 눌러주세요.</li>
+              <li className="empty-state">아직 저장된 추천 번호가 없습니다.</li>
             )}
           </ol>
         </article>

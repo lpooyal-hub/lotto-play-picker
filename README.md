@@ -6,6 +6,14 @@
 
 번호 생성은 랜덤 시드 방식이 아니라, 과거 데이터에서 만든 후보군을 점수화해 상위 조합부터 반환하는 결정론적 방식입니다.
 
+운영 흐름은 매 요청마다 계산하는 방식이 아닙니다.
+
+1. Vercel Cron이 매주 한 번 `/api/cron/generate-weekly`를 호출합니다.
+2. 서버 함수가 1회부터 최신 회차까지 전체 당첨번호를 가져와 추천 5조합을 계산합니다.
+3. 계산된 추천 번호는 Supabase `lotto_predictions` 테이블에 저장됩니다.
+4. 화면은 저장된 추천 기록만 조회해서 보여줍니다.
+5. 추첨 후 `/api/cron/check-result`가 실제 당첨 번호를 가져와 추천 조합의 적중 결과를 저장합니다.
+
 ## Stack
 
 - Next.js App Router
@@ -59,7 +67,7 @@ npm run dev
 
 ## API Routes
 
-- `POST /api/generate`: 즉석 번호 생성
+- `POST /api/generate`: 개발/테스트용 즉석 번호 생성
 - `GET /api/predictions`: 저장된 추천 기록 조회
 - `GET /api/cron/generate-weekly`: 다음 회차 추천 생성 후 Supabase 저장
 - `GET /api/cron/check-result`: 당첨 번호 확인 후 추천 결과 업데이트
