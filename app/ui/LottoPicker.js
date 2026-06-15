@@ -22,6 +22,19 @@ function NumberBalls({ numbers }) {
   );
 }
 
+async function readJsonResponse(response) {
+  const text = await response.text();
+  if (!text.trim()) {
+    throw new Error(`서버가 빈 응답을 반환했습니다. (${response.status})`);
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`서버 응답을 JSON으로 읽지 못했습니다. (${response.status})`);
+  }
+}
+
 export default function LottoPicker() {
   const [count, setCount] = useState(5);
   const [historyLimit, setHistoryLimit] = useState(300);
@@ -35,7 +48,7 @@ export default function LottoPicker() {
 
   async function loadPredictions() {
     const response = await fetch('/api/predictions');
-    const data = await response.json();
+    const data = await readJsonResponse(response);
     setPredictions(data.predictions || []);
   }
 
@@ -55,7 +68,7 @@ export default function LottoPicker() {
         }),
       });
 
-      const data = await response.json();
+      const data = await readJsonResponse(response);
       if (!response.ok) {
         throw new Error(data.error || '번호 생성 실패');
       }
