@@ -167,15 +167,10 @@ button {
   cursor: pointer;
   font-weight: 900;
   padding: 0 16px;
-  transition:
-    transform 150ms ease,
-    background 150ms ease,
-    opacity 150ms ease;
 }
 
 button:hover:not(:disabled) {
   background: var(--accent-hover);
-  transform: translateY(-1px);
 }
 
 button:disabled {
@@ -187,10 +182,6 @@ button.secondary {
   border: 1px solid var(--line);
   background: #fff;
   color: var(--accent);
-}
-
-button.secondary:hover:not(:disabled) {
-  background: var(--soft);
 }
 
 .summary {
@@ -261,55 +252,55 @@ button.secondary:hover:not(:disabled) {
   font-weight: 950;
 }
 
-.ball.tier-1 {
+.tier-1 {
   background: #f8dfa8;
 }
 
-.ball.tier-2 {
+.tier-2 {
   background: #bddfeb;
 }
 
-.ball.tier-3 {
+.tier-3 {
   background: #f2b9b5;
 }
 
-.ball.tier-4 {
+.tier-4 {
   background: #c9d0d9;
 }
 
-.ball.tier-5 {
+.tier-5 {
   background: #bddfc6;
 }
 
-.detail-panel {
+.history-panel {
   margin-top: 20px;
 }
 
-.logic-grid {
+.history-list {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
-  margin-top: 16px;
+  margin: 16px 0 0;
 }
 
-.logic-grid div {
-  min-width: 0;
+.history-card {
   border: 1px solid var(--line);
   border-radius: 12px;
   background: #fff;
   padding: 14px;
 }
 
-.logic-grid p {
-  margin-bottom: 0;
+.history-card header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
   color: var(--muted);
-  font-size: 0.9rem;
-  line-height: 1.6;
+  font-size: 0.84rem;
+  font-weight: 900;
 }
 
 @media (max-width: 840px) {
-  .tool-grid,
-  .logic-grid {
+  .tool-grid {
     grid-template-columns: 1fr;
   }
 }

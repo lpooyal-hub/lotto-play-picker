@@ -1,34 +1,72 @@
 # Lotto Play Picker
 
-과거 로또 6/45 당첨 번호를 참고해서 매주 재미로 5개 조합을 뽑아보는 취미용 도구입니다.
+과거 로또 6/45 당첨 번호를 참고해서 매주 재미로 5개 조합을 뽑고, 이후 실제 당첨 결과와 비교해 기록하는 취미용 웹앱입니다.
 
-로또는 무작위 추첨이므로 이 도구는 당첨 확률을 보장하지 않습니다.
+> 로또는 무작위 추첨입니다. 이 프로젝트는 당첨 확률을 보장하거나 높인다고 주장하지 않습니다.
 
-## CLI
+## Stack
+
+- Next.js App Router
+- Vercel Functions
+- Vercel Cron Jobs
+- Supabase Postgres
+- Dhlottery public JSON endpoint
+
+## Supabase Table
+
+Supabase SQL Editor에서 실행하세요.
+
+```sql
+create table lotto_predictions (
+  id uuid primary key default gen_random_uuid(),
+  target_draw_no integer not null unique,
+  picks jsonb not null,
+  generated_at timestamptz not null default now(),
+  winning_numbers integer[],
+  bonus_number integer,
+  match_results jsonb,
+  checked_at timestamptz
+);
+
+alter table lotto_predictions enable row level security;
+
+create policy "public can read lotto predictions"
+on lotto_predictions
+for select
+to anon
+using (true);
+```
+
+## Environment Variables
 
 ```bash
-python3 lotto_picker.py
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+SUPABASE_SECRET_KEY=
+CRON_SECRET=
 ```
 
-## Frontend
+`SUPABASE_SECRET_KEY`는 Vercel 서버 함수에서만 사용합니다. 브라우저에 노출하지 마세요.
 
-정적 웹페이지:
+## Local Development
 
 ```bash
-python3 -m http.server 8092 --directory frontend
+npm install
+npm run dev
 ```
 
-브라우저:
+## API Routes
 
-```text
-http://localhost:8092
-```
+- `POST /api/generate`: 즉석 번호 생성
+- `GET /api/predictions`: 저장된 추천 기록 조회
+- `GET /api/cron/generate-weekly`: 다음 회차 추천 생성 후 Supabase 저장
+- `GET /api/cron/check-result`: 당첨 번호 확인 후 추천 결과 업데이트
 
-브라우저에서 동행복권 API가 CORS로 막히면, 먼저 로컬 히스토리 JSON을 생성합니다.
+## Vercel Cron
 
-```bash
-python3 export_history.py --history 300
-python3 -m http.server 8092 --directory frontend
-```
+`vercel.json`에 아래 스케줄이 들어 있습니다.
 
-그러면 프론트는 `frontend/lotto_history.json`을 먼저 읽고 번호를 생성합니다.
+- `0 3 * * 6`: 매주 토요일 03:00 UTC 추천 생성
+- `0 14 * * 6`: 매주 토요일 14:00 UTC 결과 확인
+
+Vercel Cron은 UTC 기준입니다. 한국 시간 기준으로 조정이 필요하면 `vercel.json`의 schedule을 바꾸세요.
