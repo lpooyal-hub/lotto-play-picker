@@ -5,9 +5,8 @@ export async function POST(request) {
   try {
     const body = await request.json().catch(() => ({}));
     const count = Math.max(1, Math.min(20, Number(body.count) || 5));
-    const historyLimit = Math.max(80, Math.min(1000, Number(body.historyLimit) || 300));
 
-    const draws = await fetchHistory({ limit: historyLimit });
+    const draws = await fetchHistory();
     const picks = generateCombinations(draws, { count });
 
     return Response.json({

@@ -37,7 +37,6 @@ async function readJsonResponse(response) {
 
 export default function LottoPicker() {
   const [count, setCount] = useState(5);
-  const [historyLimit, setHistoryLimit] = useState(300);
   const [status, setStatus] = useState('대기');
   const [summary, setSummary] = useState('아직 번호를 생성하지 않았습니다.');
   const [error, setError] = useState('');
@@ -60,7 +59,6 @@ export default function LottoPicker() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           count,
-          historyLimit,
         }),
       });
 
@@ -102,18 +100,8 @@ export default function LottoPicker() {
               <input type="number" min="1" max="20" value={count} onChange={(e) => setCount(Number(e.target.value))} />
             </label>
 
-            <label>
-              분석 회차
-              <select value={historyLimit} onChange={(e) => setHistoryLimit(Number(e.target.value))}>
-                <option value="500">최근 500회</option>
-                <option value="300">최근 300회</option>
-                <option value="150">최근 150회</option>
-                <option value="80">최근 80회</option>
-              </select>
-            </label>
-
             <div className="summary">
-              자주 나온 수와 적게 나온 수, 최근성, 장기 미출현, 동반 출현, 합계/홀짝 밸런스를 점수화해 상위 조합을 계산합니다.
+              1회부터 최신 회차까지 전체 당첨번호를 기준으로 자주 나온 수와 적게 나온 수, 최근성, 장기 미출현, 동반 출현, 합계/홀짝 밸런스를 점수화합니다.
             </div>
           </div>
 
