@@ -1,0 +1,13 @@
+services:
+  lotto-backend:
+    build: ./backend
+    container_name: lotto-play-picker-backend
+    restart: unless-stopped
+    env_file:
+      - .env.local
+    environment:
+      ENABLE_WEEKLY_SCHEDULER: "true"
+      WEEKLY_SCHEDULER_CRON: "35 21 * * 6"
+      WEEKLY_SCHEDULER_TIMEZONE: "Asia/Seoul"
+    ports:
+      - "8020:8000"

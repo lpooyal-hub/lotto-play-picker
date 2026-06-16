@@ -8,19 +8,20 @@
 
 운영 흐름은 매 요청마다 계산하는 방식이 아닙니다.
 
-1. Vercel Cron이 매주 한 번 `/api/cron/generate-weekly`를 호출합니다.
-2. 서버 함수가 1회부터 최신 회차까지 전체 당첨번호를 가져와 추천 5조합을 계산합니다.
-3. 계산된 추천 번호는 Supabase `lotto_predictions` 테이블에 저장됩니다.
-4. 화면은 저장된 추천 기록만 조회해서 보여줍니다.
-5. 추첨 후 `/api/cron/check-result`가 실제 당첨 번호를 가져와 추천 조합의 적중 결과를 저장합니다.
+1. Docker 백엔드가 매주 토요일 밤 자동으로 주간 배치를 실행합니다.
+2. 배치는 동행복권 페이지를 Playwright로 열어 최신 회차를 확인하고 Supabase `lotto_draws`를 동기화합니다.
+3. 지난 추천 기록이 있으면 실제 당첨 번호와 비교해 적중 결과를 갱신합니다.
+4. 다음 회차용 추천 5조합을 Supabase `lotto_predictions`에 저장합니다.
+5. 화면은 저장된 추천 기록만 조회해서 보여줍니다.
 
 ## Stack
 
 - Next.js App Router
 - Vercel Functions
-- Vercel Cron Jobs
+- FastAPI backend for Docker deployment
 - Supabase Postgres
-- Dhlottery public JSON endpoint
+- Supabase에 저장한 회차 캐시
+- Playwright (동행복권 회차 확인용)
 
 ## Supabase Table
 
@@ -45,6 +46,28 @@ on lotto_predictions
 for select
 to anon
 using (true);
+
+grant select on table lotto_predictions to anon;
+grant select, insert, update, delete on table lotto_predictions to service_role;
+
+create table if not exists lotto_draws (
+  draw_no integer primary key,
+  numbers integer[] not null,
+  bonus_number integer not null,
+  draw_date date,
+  synced_at timestamptz not null default now()
+);
+
+alter table lotto_draws enable row level security;
+
+create policy "public can read lotto draws"
+on lotto_draws
+for select
+to anon
+using (true);
+
+grant select on table lotto_draws to anon;
+grant select, insert, update, delete on table lotto_draws to service_role;
 ```
 
 ## Environment Variables
@@ -54,9 +77,19 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 SUPABASE_SECRET_KEY=
 CRON_SECRET=
+NEXT_PUBLIC_API_BASE_URL=
 ```
 
 `SUPABASE_SECRET_KEY`는 Vercel 서버 함수에서만 사용합니다. 브라우저에 노출하지 마세요.
+`NEXT_PUBLIC_API_BASE_URL`은 프론트가 별도 백엔드를 볼 때만 설정합니다. 예: `https://lotto.42222.cloud`
+
+백엔드 자동 스케줄러를 함께 쓸 경우:
+
+```bash
+ENABLE_WEEKLY_SCHEDULER=true
+WEEKLY_SCHEDULER_CRON=35 21 * * 6
+WEEKLY_SCHEDULER_TIMEZONE=Asia/Seoul
+```
 
 ## Local Development
 
@@ -65,18 +98,40 @@ npm install
 npm run dev
 ```
 
+## Docker Backend
+
+OCI 서버에서는 FastAPI 백엔드만 Docker로 띄울 수 있습니다.
+
+```bash
+docker compose up -d --build
+```
+
+기본 포트 매핑은 `8020:8000`입니다. OCI 인바운드 포트를 추가로 열지 않고, 기존 443 nginx에서 `lotto.42222.cloud`를 `http://172.17.0.1:8020/`로 프록시하는 구성을 사용합니다.
+
+기본 설정에서는 Docker 컨테이너 안의 주간 스케줄러가 `매주 토요일 21:35 (Asia/Seoul)`에 자동 실행됩니다.
+
+수동 실행:
+
+```bash
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto.42222.cloud/api/sync-draws
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto.42222.cloud/api/generate-weekly
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto.42222.cloud/api/check-result
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto.42222.cloud/api/run-weekly-maintenance
+```
+
 ## API Routes
 
 - `POST /api/generate`: 개발/테스트용 즉석 번호 생성
 - `GET /api/predictions`: 저장된 추천 기록 조회
+- `GET /api/cron/sync-draws`: 전체 회차 데이터를 Supabase `lotto_draws`에 동기화
 - `GET /api/cron/generate-weekly`: 다음 회차 추천 생성 후 Supabase 저장
 - `GET /api/cron/check-result`: 당첨 번호 확인 후 추천 결과 업데이트
 
-## Vercel Cron
+FastAPI backend:
 
-`vercel.json`에 아래 스케줄이 들어 있습니다.
-
-- `0 3 * * 6`: 매주 토요일 03:00 UTC 추천 생성
-- `0 14 * * 6`: 매주 토요일 14:00 UTC 결과 확인
-
-Vercel Cron은 UTC 기준입니다. 한국 시간 기준으로 조정이 필요하면 `vercel.json`의 schedule을 바꾸세요.
+- `GET /health`: health check
+- `GET /api/predictions`: 저장된 추천 기록 조회
+- `POST /api/sync-draws`: 전체 회차 데이터를 Supabase `lotto_draws`에 동기화
+- `POST /api/generate-weekly`: 다음 회차 추천 생성 후 Supabase 저장
+- `POST /api/check-result`: 당첨 번호 확인 후 추천 결과 업데이트
+- `POST /api/run-weekly-maintenance`: 동기화 -> 결과 확인 -> 다음 회차 추천 생성을 한 번에 실행

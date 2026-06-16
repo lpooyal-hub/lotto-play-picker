@@ -1,12 +1,1 @@
-{
-  "crons": [
-    {
-      "path": "/api/cron/generate-weekly",
-      "schedule": "0 3 * * 6"
-    },
-    {
-      "path": "/api/cron/check-result",
-      "schedule": "0 14 * * 6"
-    }
-  ]
-}
+{}

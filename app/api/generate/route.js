@@ -1,4 +1,5 @@
 import { fetchHistory } from '../../../lib/dhlottery';
+import { assertEnoughDraws, fetchStoredDraws, saveDraws } from '../../../lib/drawStore';
 import { generateCombinations } from '../../../lib/picker';
 
 export async function POST(request) {
@@ -6,7 +7,13 @@ export async function POST(request) {
     const body = await request.json().catch(() => ({}));
     const count = Math.max(1, Math.min(20, Number(body.count) || 5));
 
-    const draws = await fetchHistory();
+    let draws = await fetchStoredDraws();
+    if (!draws.length) {
+      draws = await fetchHistory();
+      await saveDraws(draws);
+    }
+    assertEnoughDraws(draws);
+
     const picks = generateCombinations(draws, { count });
 
     return Response.json({

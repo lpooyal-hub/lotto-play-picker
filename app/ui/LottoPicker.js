@@ -35,6 +35,11 @@ async function readJsonResponse(response) {
   }
 }
 
+function apiUrl(path) {
+  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+  return baseUrl ? `${baseUrl}${path}` : path;
+}
+
 export default function LottoPicker() {
   const [status, setStatus] = useState('불러오는 중');
   const [summary, setSummary] = useState('이번 주 추천 기록을 불러오는 중입니다.');
@@ -45,7 +50,7 @@ export default function LottoPicker() {
     setStatus('불러오는 중');
     setError('');
     try {
-      const response = await fetch('/api/predictions');
+      const response = await fetch(apiUrl('/api/predictions'));
       const data = await readJsonResponse(response);
       if (!response.ok) {
         throw new Error(data.error || '추천 기록 조회 실패');
@@ -56,7 +61,7 @@ export default function LottoPicker() {
       setSummary(
         nextPredictions.length
           ? `${nextPredictions[0].target_draw_no}회차 추천 기록을 불러왔습니다.`
-          : '아직 저장된 추천 기록이 없습니다. Vercel Cron 또는 수동 cron 호출로 첫 추천을 생성하세요.',
+          : '아직 저장된 추천 기록이 없습니다. 백엔드 동기화 또는 수동 API 호출로 첫 추천을 생성하세요.',
       );
       setStatus(nextPredictions.length ? '준비 완료' : '기록 없음');
     } catch (err) {
@@ -82,7 +87,7 @@ export default function LottoPicker() {
           </div>
 
           <p className="summary">
-            Vercel Cron이 매주 한 번 전체 회차 데이터를 분석해 Supabase에 추천 번호 5조합을 저장합니다.
+            백엔드 작업이 전체 회차 데이터를 분석해 Supabase에 추천 번호 5조합을 저장합니다.
             화면은 저장된 추천과 추첨 후 검증 결과만 불러옵니다.
           </p>
 
