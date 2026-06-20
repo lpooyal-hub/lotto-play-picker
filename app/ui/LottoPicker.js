@@ -66,6 +66,39 @@ function formatPrizeAmount(value) {
   }
 }
 
+function computeStats(predictions) {
+  const checkedPredictions = predictions.filter((prediction) => prediction.checked_at);
+  const settledResults = checkedPredictions.flatMap((prediction) => prediction.match_results || []);
+  const winningResults = settledResults.filter((result) => result?.rank);
+  const totalPrize = winningResults.reduce((sum, result) => sum + (result.prizeAmount || 0), 0);
+  const bestRank = winningResults
+    .map((result) => result.rank)
+    .sort((left, right) => Number(left.replace("등", "")) - Number(right.replace("등", "")))[0] || '기록 없음';
+
+  return [
+    {
+      label: '결과 확인 회차',
+      value: `${checkedPredictions.length}회`,
+      caption: checkedPredictions.length ? '실제 추첨 결과와 비교 완료' : '아직 확인된 회차 없음',
+    },
+    {
+      label: '당첨 조합 수',
+      value: `${winningResults.length}건`,
+      caption: winningResults.length ? '3개 이상 일치 조합 기준' : '아직 당첨 조합 없음',
+    },
+    {
+      label: '최고 적중',
+      value: bestRank,
+      caption: winningResults.length ? '현재까지 가장 높은 등수' : '기록 누적 중',
+    },
+    {
+      label: '누적 당첨금',
+      value: totalPrize ? `${formatPrizeAmount(totalPrize)}원` : '0원',
+      caption: totalPrize ? '지금까지 확인된 총 당첨금' : '아직 당첨금 기록 없음',
+    },
+  ];
+}
+
 function matchedNumbersFromResult(result, winningNumbers = []) {
   if (!result?.pick || !winningNumbers?.length) return [];
   return result.pick.filter((number) => winningNumbers.includes(number));
@@ -141,6 +174,7 @@ export default function LottoPicker() {
   const [error, setError] = useState('');
   const [predictions, setPredictions] = useState([]);
   const [openCards, setOpenCards] = useState({});
+  const stats = computeStats(predictions);
 
   function toggleCard(id) {
     setOpenCards((current) => ({
@@ -186,6 +220,16 @@ export default function LottoPicker() {
 
   return (
     <>
+      <section className="stats-grid">
+        {stats.map((stat) => (
+          <article key={stat.label} className="stat-card">
+            <p className="stat-label">{stat.label}</p>
+            <strong className="stat-value">{stat.value}</strong>
+            <p className="stat-caption">{stat.caption}</p>
+          </article>
+        ))}
+      </section>
+
       <section className="tool-grid">
         <article className="panel">
           <div className="panel-heading">

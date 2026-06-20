@@ -93,6 +93,43 @@ h3 {
   line-height: 1.6;
 }
 
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: var(--shadow);
+}
+
+.stat-label {
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 900;
+}
+
+.stat-value {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--ink);
+  font-size: 1.28rem;
+  line-height: 1.1;
+}
+
+.stat-caption {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
 .tool-grid {
   display: grid;
   grid-template-columns: minmax(0, 0.95fr) minmax(340px, 1.05fr);
@@ -465,6 +502,10 @@ button.secondary {
 }
 
 @media (max-width: 840px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .tool-grid {
     grid-template-columns: 1fr;
   }
@@ -482,6 +523,10 @@ button.secondary {
 
   .panel {
     padding: 18px;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
   }
 
   .winning-row,
