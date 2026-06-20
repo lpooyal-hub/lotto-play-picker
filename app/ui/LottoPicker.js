@@ -10,11 +10,22 @@ function ballTier(number) {
   return 5;
 }
 
-function NumberBalls({ numbers }) {
+function NumberBalls({ numbers, matchedNumbers = [] }) {
+  const matchedSet = new Set(matchedNumbers);
+
   return (
     <div className="numbers">
       {numbers.map((number) => (
-        <span key={number} className={`ball tier-${ballTier(number)}`}>
+        <span
+          key={number}
+          className={[
+            'ball',
+            `tier-${ballTier(number)}`,
+            matchedSet.has(number) ? 'matched' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
           {String(number).padStart(2, '0')}
         </span>
       ))}
@@ -54,6 +65,11 @@ function formatPrizeAmount(value) {
   }
 }
 
+function matchedNumbersFromResult(result, winningNumbers = []) {
+  if (!result?.pick || !winningNumbers?.length) return [];
+  return result.pick.filter((number) => winningNumbers.includes(number));
+}
+
 function WinningSummary({ prediction }) {
   if (!prediction?.winning_numbers?.length) return null;
 
@@ -64,7 +80,7 @@ function WinningSummary({ prediction }) {
         {prediction.checked_at ? <span>{formatCheckedAt(prediction.checked_at)} 확인</span> : null}
       </div>
       <div className="winning-row">
-        <NumberBalls numbers={prediction.winning_numbers} />
+        <NumberBalls numbers={prediction.winning_numbers} matchedNumbers={prediction.winning_numbers} />
         <div className="bonus-pill">
           <span>보너스</span>
           <span className={`ball tier-${ballTier(prediction.bonus_number)}`}>{String(prediction.bonus_number).padStart(2, '0')}</span>
@@ -75,19 +91,27 @@ function WinningSummary({ prediction }) {
 }
 
 function PredictionPickCard({ pick, index, result, showResult = false }) {
+  const matchedNumbers = showResult ? matchedNumbersFromResult(result) : [];
+
   return (
     <li key={pick.join('-')} className="result-item">
-                  <div className="result-meta">
-                    <span>Pick {index + 1}</span>
-                    <div className="result-meta-right">
-                      {showResult ? <MatchBadge result={result} /> : null}
-                      {showResult && result?.rank && result?.prizeAmount ? (
-                        <span className="prize-chip">{formatPrizeAmount(result.prizeAmount)}원</span>
-                      ) : null}
-                      <span>sum {pick.reduce((acc, number) => acc + number, 0)}</span>
-                    </div>
-                  </div>
-      <NumberBalls numbers={pick} />
+      <div className="result-meta">
+        <span>Pick {index + 1}</span>
+        <div className="result-meta-right">
+          {showResult ? <MatchBadge result={result} /> : null}
+          {showResult && result?.rank && result?.prizeAmount ? (
+            <span className="prize-chip">{formatPrizeAmount(result.prizeAmount)}원</span>
+          ) : null}
+          <span>sum {pick.reduce((acc, number) => acc + number, 0)}</span>
+        </div>
+      </div>
+      <NumberBalls numbers={pick} matchedNumbers={matchedNumbers} />
+      {showResult ? (
+        <p className="match-note">
+          {matchedNumbers.length ? `일치 번호: ${matchedNumbers.join(', ')}` : '일치 번호 없음'}
+          {result?.bonusMatched ? ' / 보너스 번호 일치' : ''}
+        </p>
+      ) : null}
     </li>
   );
 }
@@ -115,6 +139,14 @@ export default function LottoPicker() {
   const [summary, setSummary] = useState('이번 주 추천 기록을 불러오는 중입니다.');
   const [error, setError] = useState('');
   const [predictions, setPredictions] = useState([]);
+  const [openCards, setOpenCards] = useState({});
+
+  function toggleCard(id) {
+    setOpenCards((current) => ({
+      ...current,
+      [id]: !current[id],
+    }));
+  }
 
   async function loadPredictions() {
     setStatus('불러오는 중');
@@ -128,6 +160,13 @@ export default function LottoPicker() {
 
       const nextPredictions = data.predictions || [];
       setPredictions(nextPredictions);
+      setOpenCards((current) => {
+        const next = {};
+        nextPredictions.forEach((prediction, index) => {
+          next[prediction.id] = current[prediction.id] ?? false;
+        });
+        return next;
+      });
       setSummary(
         nextPredictions.length
           ? `${nextPredictions[0].target_draw_no}회차 추천 기록을 불러왔습니다.`
@@ -211,22 +250,29 @@ export default function LottoPicker() {
           {predictions.length ? (
             predictions.map((prediction) => (
               <article key={prediction.id} className="history-card">
-                <header>
-                  <span>{prediction.target_draw_no}회차 추천</span>
-                  <span>{prediction.checked_at ? '결과 확인 완료' : '결과 대기'}</span>
-                </header>
-                <WinningSummary prediction={prediction} />
-                <ol className="history-pick-list">
-                  {(prediction.picks || []).slice(0, 5).map((pick, index) => (
-                    <PredictionPickCard
-                      key={pick.join('-')}
-                      pick={pick}
-                      index={index}
-                      result={prediction.match_results?.[index]}
-                      showResult={Boolean(prediction.winning_numbers?.length)}
-                    />
-                  ))}
-                </ol>
+                <button className="history-toggle" type="button" onClick={() => toggleCard(prediction.id)}>
+                  <div className="history-toggle-copy">
+                    <span>{prediction.target_draw_no}회차 추천</span>
+                    <span>{prediction.checked_at ? '결과 확인 완료' : '결과 대기'}</span>
+                  </div>
+                  <span className={`history-toggle-icon ${openCards[prediction.id] ? 'open' : ''}`}>⌄</span>
+                </button>
+                {openCards[prediction.id] ? (
+                  <div className="history-card-body">
+                    <WinningSummary prediction={prediction} />
+                    <ol className="history-pick-list">
+                      {(prediction.picks || []).slice(0, 5).map((pick, index) => (
+                        <PredictionPickCard
+                          key={pick.join('-')}
+                          pick={pick}
+                          index={index}
+                          result={prediction.match_results?.[index]}
+                          showResult={Boolean(prediction.winning_numbers?.length)}
+                        />
+                      ))}
+                    </ol>
+                  </div>
+                ) : null}
               </article>
             ))
           ) : (

@@ -215,7 +215,7 @@ button.secondary {
   border: 1px solid var(--line);
   border-radius: 12px;
   background: #fff;
-  padding: 14px;
+  padding: 10px;
 }
 
 .empty-state {
@@ -228,10 +228,10 @@ button.secondary {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: 10px;
+  margin-bottom: 8px;
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 900;
 }
 
@@ -240,24 +240,26 @@ button.secondary {
   align-items: center;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 6px;
 }
 
 .numbers {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 5px;
 }
 
 .ball {
   display: grid;
   place-items: center;
-  width: 42px;
-  height: 42px;
+  width: 32px;
+  height: 32px;
   border-radius: 999px;
   background: #eef4f7;
   color: var(--ink);
+  font-size: 0.8rem;
   font-weight: 950;
+  border: 1.5px solid transparent;
 }
 
 .tier-1 {
@@ -280,9 +282,15 @@ button.secondary {
   background: #bddfc6;
 }
 
+.ball.matched {
+  border-color: #356245;
+  box-shadow: 0 0 0 3px rgba(53, 98, 69, 0.12);
+  transform: translateY(-1px);
+}
+
 .winning-summary {
   margin-bottom: 14px;
-  padding: 14px;
+  padding: 10px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: #fff;
@@ -291,10 +299,10 @@ button.secondary {
 .winning-summary-header {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: 10px;
+  margin-bottom: 8px;
   color: var(--muted);
-  font-size: 0.8rem;
+  font-size: 0.72rem;
   font-weight: 900;
 }
 
@@ -302,34 +310,34 @@ button.secondary {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
+  gap: 10px;
 }
 
 .bonus-pill {
   display: grid;
   justify-items: center;
-  gap: 8px;
-  min-width: 84px;
-  padding: 10px 12px;
+  gap: 4px;
+  min-width: 64px;
+  padding: 6px 8px;
   border-radius: 12px;
   background: var(--soft);
   color: var(--accent);
-  font-size: 0.78rem;
+  font-size: 0.68rem;
   font-weight: 900;
 }
 
 .bonus-pill .ball {
-  width: 38px;
-  height: 38px;
+  width: 30px;
+  height: 30px;
 }
 
 .match-badge {
   display: inline-flex;
   align-items: center;
-  min-height: 28px;
-  padding: 0 10px;
+  min-height: 22px;
+  padding: 0 7px;
   border-radius: 999px;
-  font-size: 0.74rem;
+  font-size: 0.66rem;
   font-weight: 900;
 }
 
@@ -352,13 +360,21 @@ button.secondary {
 .prize-chip {
   display: inline-flex;
   align-items: center;
-  min-height: 28px;
-  padding: 0 10px;
+  min-height: 22px;
+  padding: 0 7px;
   border-radius: 999px;
   background: #fff4e6;
   color: #8a5624;
-  font-size: 0.74rem;
+  font-size: 0.66rem;
   font-weight: 900;
+}
+
+.match-note {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1.5;
 }
 
 .history-panel {
@@ -375,7 +391,7 @@ button.secondary {
   border: 1px solid var(--line);
   border-radius: 12px;
   background: #fff;
-  padding: 14px;
+  overflow: hidden;
 }
 
 .history-card header {
@@ -386,6 +402,51 @@ button.secondary {
   color: var(--muted);
   font-size: 0.84rem;
   font-weight: 900;
+}
+
+.history-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 0;
+  background: #fff;
+  color: inherit;
+}
+
+.history-toggle:hover {
+  background: #f9f6ef;
+}
+
+.history-toggle-copy {
+  display: grid;
+  gap: 3px;
+  text-align: left;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.history-toggle-copy span:first-child {
+  color: var(--ink);
+  font-size: 0.86rem;
+}
+
+.history-toggle-icon {
+  font-size: 1.1rem;
+  line-height: 1;
+  transition: transform 160ms ease;
+}
+
+.history-toggle-icon.open {
+  transform: rotate(180deg);
+}
+
+.history-card-body {
+  padding: 0 12px 12px;
+  border-top: 1px solid #efe7da;
 }
 
 .history-pick-list {
@@ -418,7 +479,6 @@ button.secondary {
 
   .winning-row,
   .winning-summary-header,
-  .history-card header,
   .result-meta {
     flex-direction: column;
     align-items: flex-start;
@@ -426,5 +486,9 @@ button.secondary {
 
   .result-meta-right {
     justify-content: flex-start;
+  }
+
+  .history-toggle {
+    align-items: flex-start;
   }
 }
