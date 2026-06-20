@@ -19,6 +19,11 @@ def _normalize_draw_date(value: str) -> str | None:
         return None
 
 
+def _parse_amount(value: str) -> int | None:
+    digits = "".join(char for char in value if char.isdigit())
+    return int(digits) if digits else None
+
+
 def fetch_recent_draws_with_playwright() -> list[dict]:
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
@@ -36,6 +41,23 @@ def fetch_recent_draws_with_playwright() -> list[dict]:
             page.wait_for_selector(".result-infoWrap", timeout=15000)
 
             cards = page.locator(".result-infoWrap")
+            selected_draw_text = page.locator("#d-trigger_txt").first.inner_text(timeout=3000).strip().replace("회", "")
+            selected_draw_no = int(selected_draw_text) if selected_draw_text.isdigit() else None
+
+            prizes: dict[str, dict] = {}
+            prize_rows = page.locator(".drawResult-tbl .tbody-tr .tbl-tr")
+            for row_index in range(prize_rows.count()):
+                row = prize_rows.nth(row_index)
+                rank_text = row.locator(".td-rank").first.inner_text(timeout=3000).strip()
+                if rank_text not in {"1등", "2등", "3등", "4등", "5등"}:
+                    continue
+
+                amount_text = row.locator(".perMoney").first.inner_text(timeout=3000).strip()
+                prizes[rank_text] = {
+                    "amount": _parse_amount(amount_text),
+                    "amountText": amount_text,
+                }
+
             draws: list[dict] = []
 
             for index in range(cards.count()):
@@ -63,6 +85,7 @@ def fetch_recent_draws_with_playwright() -> list[dict]:
                         "numbers": sorted(values[:6]),
                         "bonus": values[6],
                         "drawDate": _normalize_draw_date(date_text),
+                        "prizes": prizes if selected_draw_no == draw_no and prizes else None,
                     }
                 )
 

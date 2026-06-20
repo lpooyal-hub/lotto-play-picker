@@ -73,9 +73,9 @@ def check_prediction_results() -> list[dict]:
     checked = []
 
     for prediction in fetch_unchecked_predictions(latest_draw_no):
-        draw = next((item for item in stored_draws if item["drawNo"] == prediction["target_draw_no"]), None)
-        if not draw:
-            draw = fetch_draw_with_fallback(prediction["target_draw_no"])
+        cached_draw = next((item for item in stored_draws if item["drawNo"] == prediction["target_draw_no"]), None)
+        live_draw = fetch_draw_with_fallback(prediction["target_draw_no"])
+        draw = live_draw or cached_draw
         if not draw:
             continue
 

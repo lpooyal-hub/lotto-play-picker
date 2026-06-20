@@ -349,6 +349,18 @@ button.secondary {
   color: #356245;
 }
 
+.prize-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #fff4e6;
+  color: #8a5624;
+  font-size: 0.74rem;
+  font-weight: 900;
+}
+
 .history-panel {
   margin-top: 20px;
 }

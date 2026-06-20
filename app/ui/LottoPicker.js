@@ -38,11 +38,20 @@ function formatCheckedAt(value) {
 function MatchBadge({ result }) {
   if (!result) return null;
 
-  const label = `${result.matchCount}개 일치${result.bonusMatched ? ' + 보너스' : ''}`;
-  const tone =
-    result.matchCount >= 4 ? 'strong' : result.matchCount === 3 ? 'warm' : result.matchCount >= 1 ? 'soft' : 'muted';
+  const label = result.rank || `${result.matchCount}개 일치${result.bonusMatched ? ' + 보너스' : ''}`;
+  const tone = result.rank ? 'strong' : result.matchCount === 3 ? 'warm' : result.matchCount >= 1 ? 'soft' : 'muted';
 
   return <span className={`match-badge ${tone}`}>{label}</span>;
+}
+
+function formatPrizeAmount(value) {
+  if (!value) return '';
+
+  try {
+    return new Intl.NumberFormat('ko-KR').format(value);
+  } catch {
+    return String(value);
+  }
 }
 
 function WinningSummary({ prediction }) {
@@ -68,13 +77,16 @@ function WinningSummary({ prediction }) {
 function PredictionPickCard({ pick, index, result, showResult = false }) {
   return (
     <li key={pick.join('-')} className="result-item">
-      <div className="result-meta">
-        <span>Pick {index + 1}</span>
-        <div className="result-meta-right">
-          {showResult ? <MatchBadge result={result} /> : null}
-          <span>sum {pick.reduce((acc, number) => acc + number, 0)}</span>
-        </div>
-      </div>
+                  <div className="result-meta">
+                    <span>Pick {index + 1}</span>
+                    <div className="result-meta-right">
+                      {showResult ? <MatchBadge result={result} /> : null}
+                      {showResult && result?.rank && result?.prizeAmount ? (
+                        <span className="prize-chip">{formatPrizeAmount(result.prizeAmount)}원</span>
+                      ) : null}
+                      <span>sum {pick.reduce((acc, number) => acc + number, 0)}</span>
+                    </div>
+                  </div>
       <NumberBalls numbers={pick} />
     </li>
   );
