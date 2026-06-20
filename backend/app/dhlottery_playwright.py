@@ -5,7 +5,7 @@ from datetime import datetime
 from playwright.sync_api import Error, TimeoutError as PlaywrightTimeoutError, sync_playwright
 
 
-MAIN_URL = "https://www.dhlottery.co.kr/"
+RESULT_URL = "https://www.dhlottery.co.kr/lt645/result"
 
 
 def _normalize_draw_date(value: str) -> str | None:
@@ -32,22 +32,22 @@ def fetch_recent_draws_with_playwright() -> list[dict]:
         )
 
         try:
-            page.goto(MAIN_URL, wait_until="domcontentloaded", timeout=30000)
-            page.wait_for_selector(".lt645-inbox[data-ltepsd]", timeout=15000)
+            page.goto(RESULT_URL, wait_until="domcontentloaded", timeout=30000)
+            page.wait_for_selector(".result-infoWrap", timeout=15000)
 
-            cards = page.locator(".lt645-inbox[data-ltepsd]")
+            cards = page.locator(".result-infoWrap")
             draws: list[dict] = []
 
             for index in range(cards.count()):
                 card = cards.nth(index)
-                draw_no_attr = card.get_attribute("data-ltepsd")
-                if not draw_no_attr or not draw_no_attr.isdigit():
+                draw_no_text = card.locator(".color-g.ltEpsd").first.inner_text(timeout=3000).strip()
+                if not draw_no_text.isdigit():
                     continue
 
-                draw_no = int(draw_no_attr)
-                date_text = card.locator(".lt645-date").first.inner_text(timeout=3000).strip()
+                draw_no = int(draw_no_text)
+                date_text = card.locator(".result-date").first.inner_text(timeout=3000).strip().replace(" 추첨", "")
 
-                ball_nodes = card.locator(".lt645-list span.lt-ball")
+                ball_nodes = card.locator(".result-ball")
                 values = []
                 for ball_index in range(ball_nodes.count()):
                     text = ball_nodes.nth(ball_index).inner_text(timeout=3000).strip()
@@ -79,4 +79,3 @@ def fetch_draw_with_playwright(draw_no: int) -> dict | None:
         if draw["drawNo"] == draw_no:
             return draw
     return None
-

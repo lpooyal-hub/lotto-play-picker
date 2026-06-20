@@ -22,6 +22,64 @@ function NumberBalls({ numbers }) {
   );
 }
 
+function formatCheckedAt(value) {
+  if (!value) return '';
+
+  try {
+    return new Intl.DateTimeFormat('ko-KR', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(new Date(value));
+  } catch {
+    return value;
+  }
+}
+
+function MatchBadge({ result }) {
+  if (!result) return null;
+
+  const label = `${result.matchCount}개 일치${result.bonusMatched ? ' + 보너스' : ''}`;
+  const tone =
+    result.matchCount >= 4 ? 'strong' : result.matchCount === 3 ? 'warm' : result.matchCount >= 1 ? 'soft' : 'muted';
+
+  return <span className={`match-badge ${tone}`}>{label}</span>;
+}
+
+function WinningSummary({ prediction }) {
+  if (!prediction?.winning_numbers?.length) return null;
+
+  return (
+    <div className="winning-summary">
+      <div className="winning-summary-header">
+        <span>실제 당첨번호</span>
+        {prediction.checked_at ? <span>{formatCheckedAt(prediction.checked_at)} 확인</span> : null}
+      </div>
+      <div className="winning-row">
+        <NumberBalls numbers={prediction.winning_numbers} />
+        <div className="bonus-pill">
+          <span>보너스</span>
+          <span className={`ball tier-${ballTier(prediction.bonus_number)}`}>{String(prediction.bonus_number).padStart(2, '0')}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PredictionPickCard({ pick, index, result, showResult = false }) {
+  return (
+    <li key={pick.join('-')} className="result-item">
+      <div className="result-meta">
+        <span>Pick {index + 1}</span>
+        <div className="result-meta-right">
+          {showResult ? <MatchBadge result={result} /> : null}
+          <span>sum {pick.reduce((acc, number) => acc + number, 0)}</span>
+        </div>
+      </div>
+      <NumberBalls numbers={pick} />
+    </li>
+  );
+}
+
 async function readJsonResponse(response) {
   const text = await response.text();
   if (!text.trim()) {
@@ -109,16 +167,18 @@ export default function LottoPicker() {
             </div>
           </div>
 
+          <WinningSummary prediction={predictions[0]} />
+
           <ol className="result-list">
             {predictions[0]?.picks?.length ? (
               predictions[0].picks.map((pick, index) => (
-                <li key={pick.join('-')} className="result-item">
-                  <div className="result-meta">
-                    <span>Pick {index + 1}</span>
-                    <span>sum {pick.reduce((acc, number) => acc + number, 0)}</span>
-                  </div>
-                  <NumberBalls numbers={pick} />
-                </li>
+                <PredictionPickCard
+                  key={pick.join('-')}
+                  pick={pick}
+                  index={index}
+                  result={predictions[0].match_results?.[index]}
+                  showResult={Boolean(predictions[0].winning_numbers?.length)}
+                />
               ))
             ) : (
               <li className="empty-state">아직 저장된 추천 번호가 없습니다.</li>
@@ -143,9 +203,18 @@ export default function LottoPicker() {
                   <span>{prediction.target_draw_no}회차 추천</span>
                   <span>{prediction.checked_at ? '결과 확인 완료' : '결과 대기'}</span>
                 </header>
-                {(prediction.picks || []).slice(0, 5).map((pick) => (
-                  <NumberBalls key={pick.join('-')} numbers={pick} />
-                ))}
+                <WinningSummary prediction={prediction} />
+                <ol className="history-pick-list">
+                  {(prediction.picks || []).slice(0, 5).map((pick, index) => (
+                    <PredictionPickCard
+                      key={pick.join('-')}
+                      pick={pick}
+                      index={index}
+                      result={prediction.match_results?.[index]}
+                      showResult={Boolean(prediction.winning_numbers?.length)}
+                    />
+                  ))}
+                </ol>
               </article>
             ))
           ) : (
