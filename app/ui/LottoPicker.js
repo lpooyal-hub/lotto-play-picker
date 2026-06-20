@@ -10,7 +10,7 @@ function ballTier(number) {
   return 5;
 }
 
-function NumberBalls({ numbers, matchedNumbers = [] }) {
+function NumberBalls({ numbers, matchedNumbers = [], dimUnmatched = false }) {
   const matchedSet = new Set(matchedNumbers);
 
   return (
@@ -22,6 +22,7 @@ function NumberBalls({ numbers, matchedNumbers = [] }) {
             'ball',
             `tier-${ballTier(number)}`,
             matchedSet.has(number) ? 'matched' : '',
+            dimUnmatched && matchedSet.size && !matchedSet.has(number) ? 'dimmed' : '',
           ]
             .filter(Boolean)
             .join(' ')}
@@ -90,8 +91,8 @@ function WinningSummary({ prediction }) {
   );
 }
 
-function PredictionPickCard({ pick, index, result, showResult = false }) {
-  const matchedNumbers = showResult ? matchedNumbersFromResult(result) : [];
+function PredictionPickCard({ pick, index, result, winningNumbers = [], showResult = false }) {
+  const matchedNumbers = showResult ? matchedNumbersFromResult(result, winningNumbers) : [];
 
   return (
     <li key={pick.join('-')} className="result-item">
@@ -105,7 +106,7 @@ function PredictionPickCard({ pick, index, result, showResult = false }) {
           <span>sum {pick.reduce((acc, number) => acc + number, 0)}</span>
         </div>
       </div>
-      <NumberBalls numbers={pick} matchedNumbers={matchedNumbers} />
+      <NumberBalls numbers={pick} matchedNumbers={matchedNumbers} dimUnmatched={showResult} />
       {showResult ? (
         <p className="match-note">
           {matchedNumbers.length ? `일치 번호: ${matchedNumbers.join(', ')}` : '일치 번호 없음'}
@@ -228,6 +229,7 @@ export default function LottoPicker() {
                   pick={pick}
                   index={index}
                   result={predictions[0].match_results?.[index]}
+                  winningNumbers={predictions[0].winning_numbers || []}
                   showResult={Boolean(predictions[0].winning_numbers?.length)}
                 />
               ))
@@ -267,6 +269,7 @@ export default function LottoPicker() {
                           pick={pick}
                           index={index}
                           result={prediction.match_results?.[index]}
+                          winningNumbers={prediction.winning_numbers || []}
                           showResult={Boolean(prediction.winning_numbers?.length)}
                         />
                       ))}

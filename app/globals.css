@@ -286,6 +286,13 @@ button.secondary {
   border-color: #356245;
   box-shadow: 0 0 0 3px rgba(53, 98, 69, 0.12);
   transform: translateY(-1px);
+  color: #234532;
+  font-weight: 1000;
+}
+
+.ball.dimmed {
+  opacity: 0.42;
+  filter: grayscale(0.2);
 }
 
 .winning-summary {
