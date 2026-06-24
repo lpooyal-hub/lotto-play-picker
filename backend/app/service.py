@@ -2,18 +2,28 @@ from __future__ import annotations
 
 from .pension720 import fetch_recent_pension720_draws
 from .dhlottery import fetch_draw, fetch_draw_with_fallback, fetch_history, find_latest_draw_no
-from .picker import compare_pick_with_draw, generate_combinations
+from .picker import (
+    compare_pick_with_draw,
+    compare_pension720_pick_with_draw,
+    generate_combinations,
+    generate_pension720_predictions,
+)
 from .store import (
     assert_enough_draws,
     fetch_latest_stored_draw,
     fetch_latest_pension720_draw,
     fetch_prediction_by_draw,
+    fetch_pension720_prediction_by_draw,
+    fetch_pension720_predictions,
     fetch_pension720_draws,
     fetch_stored_draws,
+    fetch_unchecked_pension720_predictions,
     fetch_unchecked_predictions,
     insert_prediction,
+    insert_pension720_prediction,
     save_pension720_draws,
     save_draws,
+    update_pension720_prediction_result,
     update_prediction_result,
 )
 
@@ -94,12 +104,16 @@ def run_weekly_maintenance() -> dict:
     pension720_sync_result = sync_pension720_draws()
     checked = check_prediction_results()
     prediction = generate_weekly_prediction()
+    pension720_checked = check_pension720_prediction_results()
+    pension720_prediction = generate_weekly_pension720_prediction()
 
     return {
         "sync": sync_result,
         "pension720Sync": pension720_sync_result,
         "checkedCount": len(checked),
         "prediction": prediction,
+        "pension720CheckedCount": len(pension720_checked),
+        "pension720Prediction": pension720_prediction,
     }
 
 
@@ -124,3 +138,38 @@ def sync_pension720_draws() -> dict:
         "firstDraw": saved[0]["drawNo"] if saved else None,
         "latestDraw": saved[-1]["drawNo"] if saved else existing_latest["drawNo"],
     }
+
+
+def generate_weekly_pension720_prediction() -> dict:
+    latest_stored_draw = fetch_latest_pension720_draw()
+    if not latest_stored_draw:
+        raise RuntimeError("No stored pension720 draws available.")
+
+    target_draw_no = latest_stored_draw["drawNo"] + 1
+    existing = fetch_pension720_prediction_by_draw(target_draw_no)
+    if existing:
+        return existing
+
+    draws = fetch_pension720_draws()
+    picks = generate_pension720_predictions(draws, count=5)
+    return insert_pension720_prediction(target_draw_no, picks)
+
+
+def check_pension720_prediction_results() -> list[dict]:
+    latest_stored_draw = fetch_latest_pension720_draw()
+    if not latest_stored_draw:
+        return []
+
+    latest_draw_no = latest_stored_draw["drawNo"]
+    stored_draws = fetch_pension720_draws()
+    checked = []
+
+    for prediction in fetch_unchecked_pension720_predictions(latest_draw_no):
+        draw = next((item for item in stored_draws if item["drawNo"] == prediction["target_draw_no"]), None)
+        if not draw:
+            continue
+
+        match_results = [compare_pension720_pick_with_draw(pick, draw) for pick in prediction["picks"]]
+        checked.append(update_pension720_prediction_result(prediction["id"], draw, match_results))
+
+    return checked

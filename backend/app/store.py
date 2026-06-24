@@ -93,6 +93,51 @@ def fetch_latest_pension720_draw() -> dict | None:
     return normalize_pension720_draw(rows[0]) if rows else None
 
 
+def fetch_pension720_predictions(limit: int = 20) -> list[dict]:
+    return _request("GET", f"pension720_predictions?select=*&order=target_draw_no.desc&limit={limit}") or []
+
+
+def fetch_pension720_prediction_by_draw(target_draw_no: int) -> dict | None:
+    rows = _request("GET", f"pension720_predictions?select=*&target_draw_no=eq.{target_draw_no}&limit=1") or []
+    return rows[0] if rows else None
+
+
+def insert_pension720_prediction(target_draw_no: int, picks: list[dict]) -> dict:
+    rows = _request(
+        "POST",
+        "pension720_predictions?select=*",
+        headers={**_headers(), "Prefer": "return=representation"},
+        json={"target_draw_no": target_draw_no, "picks": picks},
+    )
+    return rows[0]
+
+
+def fetch_unchecked_pension720_predictions(latest_draw_no: int) -> list[dict]:
+    return (
+        _request(
+            "GET",
+            f"pension720_predictions?select=*&target_draw_no=lte.{latest_draw_no}&checked_at=is.null&order=target_draw_no.asc",
+        )
+        or []
+    )
+
+
+def update_pension720_prediction_result(prediction_id: str, draw: dict, match_results: list[dict]) -> dict:
+    rows = _request(
+        "PATCH",
+        f"pension720_predictions?id=eq.{prediction_id}&select=*",
+        headers={**_headers(), "Prefer": "return=representation"},
+        json={
+            "winning_group": draw["group"],
+            "winning_number": draw["winningNumber"],
+            "winning_digits": draw["digits"],
+            "match_results": match_results,
+            "checked_at": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+    return rows[0]
+
+
 def save_pension720_draws(draws: list[dict]) -> list[dict]:
     if not draws:
         return []

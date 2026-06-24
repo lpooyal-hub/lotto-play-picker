@@ -7,12 +7,14 @@ from .config import settings
 from .scheduler import shutdown_scheduler, start_scheduler
 from .service import (
     check_prediction_results,
+    check_pension720_prediction_results,
     generate_weekly_prediction,
+    generate_weekly_pension720_prediction,
     run_weekly_maintenance,
     sync_draws,
     sync_pension720_draws,
 )
-from .store import fetch_predictions, fetch_pension720_draws
+from .store import fetch_predictions, fetch_pension720_draws, fetch_pension720_predictions
 
 
 @asynccontextmanager
@@ -65,6 +67,14 @@ def pension720_draws():
         return {"draws": [], "error": str(exc)}
 
 
+@app.get("/api/pension720/predictions")
+def pension720_predictions():
+    try:
+        return {"predictions": fetch_pension720_predictions()}
+    except Exception as exc:
+        return {"predictions": [], "error": str(exc)}
+
+
 @app.post("/api/sync-draws")
 def sync_draws_route(authorization: str | None = Header(default=None)):
     try:
@@ -98,11 +108,33 @@ def generate_weekly_route(authorization: str | None = Header(default=None)):
         return {"ok": False, "error": str(exc)}
 
 
+@app.post("/api/generate-pension720-weekly")
+def generate_pension720_weekly_route(authorization: str | None = Header(default=None)):
+    try:
+        require_cron_secret(authorization)
+        return {"ok": True, "prediction": generate_weekly_pension720_prediction()}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
 @app.post("/api/check-result")
 def check_result_route(authorization: str | None = Header(default=None)):
     try:
         require_cron_secret(authorization)
         return {"ok": True, "checked": check_prediction_results()}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+@app.post("/api/check-pension720-result")
+def check_pension720_result_route(authorization: str | None = Header(default=None)):
+    try:
+        require_cron_secret(authorization)
+        return {"ok": True, "checked": check_pension720_prediction_results()}
     except HTTPException:
         raise
     except Exception as exc:
