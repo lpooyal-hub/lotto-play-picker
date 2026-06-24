@@ -2,18 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
-function formatDrawDate(value) {
-  if (!value) return '날짜 정보 없음';
-
-  try {
-    return new Intl.DateTimeFormat('ko-KR', {
-      dateStyle: 'medium',
-    }).format(new Date(value));
-  } catch {
-    return value;
-  }
-}
-
 function formatCheckedAt(value) {
   if (!value) return '';
 
@@ -87,24 +75,23 @@ function GroupChip({ group, matched = false }) {
   return <span className={`pension-group-chip ${matched ? 'matched' : ''}`}>{group}조</span>;
 }
 
-function computeStats(predictions, draws) {
+function computeStats(predictions) {
   const checkedPredictions = predictions.filter((prediction) => prediction.checked_at);
   const settledResults = checkedPredictions.flatMap((prediction) => prediction.match_results || []);
   const winningResults = settledResults.filter((result) => result?.rank);
   const bestRank = winningResults.sort((left, right) => rankValue(left.rank) - rankValue(right.rank))[0]?.rank || '기록 없음';
-  const latestDraw = draws[0];
-  const nextTarget = latestDraw ? `${latestDraw.drawNo + 1}회` : '-';
+  const latestPrediction = predictions[0];
 
   return [
     {
-      label: '분석 회차',
-      value: `${draws.length}회`,
-      caption: latestDraw ? `${latestDraw.drawNo}회까지 당첨 데이터 보관` : '기록 없음',
-    },
-    {
       label: '예측 기록',
       value: `${predictions.length}회`,
-      caption: predictions.length ? '이번 회차부터 누적 기록' : '아직 예측 기록 없음',
+      caption: predictions.length ? '예측을 생성한 회차부터 누적' : '아직 예측 기록 없음',
+    },
+    {
+      label: '결과 확인',
+      value: `${checkedPredictions.length}회`,
+      caption: checkedPredictions.length ? '실제 추첨 결과와 비교 완료' : '아직 결과 확인 전',
     },
     {
       label: '최고 적중',
@@ -112,9 +99,9 @@ function computeStats(predictions, draws) {
       caption: winningResults.length ? '공식 끝수 기준으로 판정' : '아직 적중 기록 없음',
     },
     {
-      label: '다음 타깃',
-      value: nextTarget,
-      caption: latestDraw ? '최신 당첨 회차 기준' : '당첨 회차 필요',
+      label: '최근 예측',
+      value: latestPrediction ? `${latestPrediction.target_draw_no}회` : '-',
+      caption: latestPrediction ? '가장 최근에 생성된 예측 회차' : '아직 생성된 예측 없음',
     },
   ];
 }
@@ -167,15 +154,13 @@ function PredictionPickCard({ pick, index, result, showResult = false, winningGr
 }
 
 export default function Pension720Viewer() {
-  const [draws, setDraws] = useState([]);
   const [predictions, setPredictions] = useState([]);
   const [status, setStatus] = useState('불러오는 중');
   const [summary, setSummary] = useState('연금720 예측 기록을 불러오는 중입니다.');
   const [error, setError] = useState('');
   const [openPredictionCards, setOpenPredictionCards] = useState({});
-  const [openDrawCards, setOpenDrawCards] = useState({});
   const currentPrediction = predictions[0];
-  const stats = useMemo(() => computeStats(predictions, draws), [predictions, draws]);
+  const stats = useMemo(() => computeStats(predictions), [predictions]);
 
   function togglePredictionCard(id) {
     setOpenPredictionCards((current) => ({
@@ -184,47 +169,19 @@ export default function Pension720Viewer() {
     }));
   }
 
-  function toggleDrawCard(drawNo) {
-    setOpenDrawCards((current) => ({
-      ...current,
-      [drawNo]: !current[drawNo],
-    }));
-  }
-
   async function loadData() {
     setStatus('불러오는 중');
     setError('');
 
     try {
-      const [drawResponse, predictionResponse] = await Promise.all([
-        fetch('/api/pension720/draws', { cache: 'no-store' }),
-        fetch('/api/pension720/predictions', { cache: 'no-store' }),
-      ]);
-
-      const [drawData, predictionData] = await Promise.all([
-        readJsonResponse(drawResponse),
-        readJsonResponse(predictionResponse),
-      ]);
-
-      if (!drawResponse.ok || drawData.error) {
-        throw new Error(drawData.error || '연금720 회차 기록 조회 실패');
-      }
+      const predictionResponse = await fetch('/api/pension720/predictions', { cache: 'no-store' });
+      const predictionData = await readJsonResponse(predictionResponse);
       if (!predictionResponse.ok || predictionData.error) {
         throw new Error(predictionData.error || '연금720 예측 기록 조회 실패');
       }
 
-      const nextDraws = drawData.draws || [];
       const nextPredictions = predictionData.predictions || [];
-      setDraws(nextDraws);
       setPredictions(nextPredictions);
-
-      setOpenDrawCards((current) => {
-        const next = {};
-        nextDraws.forEach((draw) => {
-          next[draw.drawNo] = current[draw.drawNo] ?? false;
-        });
-        return next;
-      });
 
       setOpenPredictionCards((current) => {
         const next = {};
@@ -236,15 +193,11 @@ export default function Pension720Viewer() {
 
       if (nextPredictions.length) {
         setSummary(`${nextPredictions[0].target_draw_no}회차 예측 기록을 불러왔습니다.`);
-      } else if (nextDraws.length) {
-        setSummary(
-          `${nextDraws[0].drawNo}회차까지 분석 데이터가 있습니다. 다음 예측은 ${nextDraws[0].drawNo + 1}회차를 기준으로 생성됩니다.`,
-        );
       } else {
-        setSummary('아직 연금720 분석 데이터가 없습니다.');
+        setSummary('아직 저장된 연금720 예측 기록이 없습니다.');
       }
 
-      setStatus(nextDraws.length ? '준비 완료' : '기록 없음');
+      setStatus(nextPredictions.length ? '준비 완료' : '기록 없음');
     } catch (err) {
       setStatus('오류');
       setError(err.message);
@@ -278,8 +231,8 @@ export default function Pension720Viewer() {
           </div>
 
           <p className="summary">
-            과거 320회 이상 당첨 데이터를 분석 재료로 사용하고, 실제 예측 기록은 이번 회차부터 따로 쌓습니다.
-            이후 추첨 결과와 비교해 연금720도 로또처럼 누적 기록을 남깁니다.
+            연금720도 로또처럼 예측을 생성한 회차부터 기록을 쌓고, 추첨 후 실제 결과와 비교해 누적 통계를
+            남깁니다.
           </p>
 
           <div className="actions">
@@ -361,51 +314,6 @@ export default function Pension720Viewer() {
             ))
           ) : (
             <div className="empty-state">Supabase에 저장된 연금720 예측 기록이 아직 없습니다.</div>
-          )}
-        </div>
-      </section>
-
-      <section className="panel history-panel">
-        <div className="panel-heading">
-          <div>
-            <p className="panel-kicker">Draw History</p>
-            <h2>연금720 당첨 회차 기록</h2>
-          </div>
-        </div>
-
-        <div className="history-list">
-          {draws.length ? (
-            draws.map((draw) => (
-              <article key={draw.drawNo} className="history-card">
-                <button className="history-toggle" type="button" onClick={() => toggleDrawCard(draw.drawNo)}>
-                  <div className="history-toggle-copy">
-                    <span>{draw.drawNo}회</span>
-                    <span>
-                      {draw.group}조 / {draw.winningNumber}
-                      {draw.drawDate ? ` / ${formatDrawDate(draw.drawDate)}` : ''}
-                    </span>
-                  </div>
-                  <span className={`history-toggle-icon ${openDrawCards[draw.drawNo] ? 'open' : ''}`}>⌄</span>
-                </button>
-                {openDrawCards[draw.drawNo] ? (
-                  <div className="history-card-body">
-                    <div className="winning-summary compact">
-                      <div className="winning-summary-header">
-                        <span>{draw.group}조</span>
-                        <span>{draw.winningNumber}</span>
-                      </div>
-                      <div className="pension-pick-row">
-                        <GroupChip group={draw.group} matched />
-                        <DigitBalls digits={draw.digits} matchedCount={6} />
-                        <span className="pension-number-inline">{draw.winningNumber}</span>
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
-              </article>
-            ))
-          ) : (
-            <div className="empty-state">연금720 당첨 회차 데이터가 아직 없습니다.</div>
           )}
         </div>
       </section>
