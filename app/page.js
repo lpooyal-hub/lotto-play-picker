@@ -7,8 +7,8 @@ export default function Home() {
         <p className="eyebrow">Toy Data Lab</p>
         <h1>Lotto Play Picker</h1>
         <p className="subtitle">
-          로또 6/45와 연금복권720+ 회차 데이터를 함께 정리해두고, 로또는 추천과 결과 기록까지 이어서 보는
-          작은 취미 도구입니다.
+          로또 6/45와 연금복권720+ 회차 데이터를 함께 정리해두고, 두 게임 모두 예측과 실제 결과 기록을
+          이어서 보는 작은 취미 도구입니다.
         </p>
       </section>
 

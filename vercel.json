@@ -1,1 +1,16 @@
-{}
+{
+  "crons": [
+    {
+      "path": "/api/cron/sync-pension720",
+      "schedule": "10 10 * * 4"
+    },
+    {
+      "path": "/api/cron/check-pension720-result",
+      "schedule": "20 10 * * 4"
+    },
+    {
+      "path": "/api/cron/generate-pension720-weekly",
+      "schedule": "30 10 * * 4"
+    }
+  ]
+}

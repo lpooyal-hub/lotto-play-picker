@@ -14,6 +14,13 @@
 4. 다음 회차용 추천 5조합을 Supabase `lotto_predictions`에 저장합니다.
 5. 화면은 저장된 추천 기록만 조회해서 보여줍니다.
 
+연금복권720+도 별도 흐름으로 운영할 수 있습니다.
+
+1. 과거 320회 이상 당첨 데이터를 분석 재료로 사용합니다.
+2. 최신 당첨 회차 기준으로 다음 회차용 예측 5개를 Supabase `pension720_predictions`에 저장합니다.
+3. 추첨 후 실제 당첨번호와 비교해 등수/끝수 일치 결과를 기록합니다.
+4. 화면은 연금720 예측 기록과 실제 결과를 따로 보여줍니다.
+
 ## Stack
 
 - Next.js App Router
@@ -68,6 +75,49 @@ using (true);
 
 grant select on table lotto_draws to anon;
 grant select, insert, update, delete on table lotto_draws to service_role;
+
+create table if not exists pension720_draws (
+  draw_no integer primary key,
+  draw_group text not null,
+  winning_number text not null,
+  digits integer[] not null,
+  draw_date date,
+  synced_at timestamptz not null default now()
+);
+
+alter table pension720_draws enable row level security;
+
+create policy "public can read pension720 draws"
+on pension720_draws
+for select
+to anon
+using (true);
+
+grant select on table pension720_draws to anon;
+grant select, insert, update, delete on table pension720_draws to service_role;
+
+create table if not exists pension720_predictions (
+  id uuid primary key default gen_random_uuid(),
+  target_draw_no integer not null unique,
+  picks jsonb not null,
+  generated_at timestamptz not null default now(),
+  winning_group text,
+  winning_number text,
+  winning_digits integer[],
+  match_results jsonb,
+  checked_at timestamptz
+);
+
+alter table pension720_predictions enable row level security;
+
+create policy "public can read pension720 predictions"
+on pension720_predictions
+for select
+to anon
+using (true);
+
+grant select on table pension720_predictions to anon;
+grant select, insert, update, delete on table pension720_predictions to service_role;
 ```
 
 ## Environment Variables
@@ -124,10 +174,13 @@ curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto.42222.cloud/a
 - `POST /api/generate`: 개발/테스트용 즉석 번호 생성
 - `GET /api/predictions`: 저장된 추천 기록 조회
 - `GET /api/pension720/draws`: 저장된 연금720 회차 기록 조회
+- `GET /api/pension720/predictions`: 저장된 연금720 예측 기록 조회
 - `GET /api/cron/sync-draws`: 전체 회차 데이터를 Supabase `lotto_draws`에 동기화
 - `GET /api/cron/sync-pension720`: 최신 연금720 회차를 Supabase `pension720_draws`에 동기화
 - `GET /api/cron/generate-weekly`: 다음 회차 추천 생성 후 Supabase 저장
+- `GET /api/cron/generate-pension720-weekly`: 다음 연금720 회차 예측 5개 생성 후 Supabase 저장
 - `GET /api/cron/check-result`: 당첨 번호 확인 후 추천 결과 업데이트
+- `GET /api/cron/check-pension720-result`: 추첨 결과 확인 후 연금720 예측 결과 업데이트
 
 FastAPI backend:
 
