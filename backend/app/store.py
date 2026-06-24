@@ -68,6 +68,58 @@ def fetch_latest_stored_draw() -> dict | None:
     return normalize_draw(rows[0]) if rows else None
 
 
+def normalize_pension720_draw(row: dict) -> dict:
+    return {
+        "drawNo": int(row["draw_no"]),
+        "group": str(row["draw_group"]),
+        "winningNumber": str(row["winning_number"]).zfill(6),
+        "digits": row["digits"],
+        "drawDate": row.get("draw_date"),
+    }
+
+
+def fetch_pension720_draws(limit: int | None = None) -> list[dict]:
+    path = "pension720_draws?select=*&order=draw_no.asc"
+    if limit:
+        rows = _request("GET", f"pension720_draws?select=*&order=draw_no.desc&limit={limit}") or []
+        return [normalize_pension720_draw(row) for row in reversed(rows)]
+
+    rows = _fetch_all(path)
+    return [normalize_pension720_draw(row) for row in rows]
+
+
+def fetch_latest_pension720_draw() -> dict | None:
+    rows = _request("GET", "pension720_draws?select=*&order=draw_no.desc&limit=1") or []
+    return normalize_pension720_draw(rows[0]) if rows else None
+
+
+def save_pension720_draws(draws: list[dict]) -> list[dict]:
+    if not draws:
+        return []
+
+    rows = [
+        {
+            "draw_no": draw["drawNo"],
+            "draw_group": draw["group"],
+            "winning_number": draw["winningNumber"],
+            "digits": draw["digits"],
+            "draw_date": draw.get("drawDate"),
+        }
+        for draw in draws
+    ]
+
+    response = requests.post(
+        _url("pension720_draws?on_conflict=draw_no"),
+        headers={**_headers(), "Prefer": "resolution=merge-duplicates,return=representation"},
+        json=rows,
+        timeout=60,
+    )
+    if response.status_code >= 400:
+        raise RuntimeError(f"Supabase pension720 upsert failed: {response.status_code} {response.text[:300]}")
+
+    return [normalize_pension720_draw(row) for row in response.json()]
+
+
 def save_draws(draws: list[dict]) -> list[dict]:
     if not draws:
         return []

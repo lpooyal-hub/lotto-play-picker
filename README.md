@@ -123,7 +123,9 @@ curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto.42222.cloud/a
 
 - `POST /api/generate`: 개발/테스트용 즉석 번호 생성
 - `GET /api/predictions`: 저장된 추천 기록 조회
+- `GET /api/pension720/draws`: 저장된 연금720 회차 기록 조회
 - `GET /api/cron/sync-draws`: 전체 회차 데이터를 Supabase `lotto_draws`에 동기화
+- `GET /api/cron/sync-pension720`: 최신 연금720 회차를 Supabase `pension720_draws`에 동기화
 - `GET /api/cron/generate-weekly`: 다음 회차 추천 생성 후 Supabase 저장
 - `GET /api/cron/check-result`: 당첨 번호 확인 후 추천 결과 업데이트
 

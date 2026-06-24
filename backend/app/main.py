@@ -5,8 +5,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .scheduler import shutdown_scheduler, start_scheduler
-from .service import check_prediction_results, generate_weekly_prediction, run_weekly_maintenance, sync_draws
-from .store import fetch_predictions
+from .service import (
+    check_prediction_results,
+    generate_weekly_prediction,
+    run_weekly_maintenance,
+    sync_draws,
+    sync_pension720_draws,
+)
+from .store import fetch_predictions, fetch_pension720_draws
 
 
 @asynccontextmanager
@@ -51,11 +57,30 @@ def predictions():
         return {"predictions": [], "error": str(exc)}
 
 
+@app.get("/api/pension720/draws")
+def pension720_draws():
+    try:
+        return {"draws": list(reversed(fetch_pension720_draws(limit=20)))}
+    except Exception as exc:
+        return {"draws": [], "error": str(exc)}
+
+
 @app.post("/api/sync-draws")
 def sync_draws_route(authorization: str | None = Header(default=None)):
     try:
         require_cron_secret(authorization)
         return {"ok": True, **sync_draws()}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+@app.post("/api/sync-pension720-draws")
+def sync_pension720_draws_route(authorization: str | None = Header(default=None)):
+    try:
+        require_cron_secret(authorization)
+        return {"ok": True, **sync_pension720_draws()}
     except HTTPException:
         raise
     except Exception as exc:

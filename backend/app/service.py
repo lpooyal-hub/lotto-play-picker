@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+from .pension720 import fetch_recent_pension720_draws
 from .dhlottery import fetch_draw, fetch_draw_with_fallback, fetch_history, find_latest_draw_no
 from .picker import compare_pick_with_draw, generate_combinations
 from .store import (
     assert_enough_draws,
     fetch_latest_stored_draw,
+    fetch_latest_pension720_draw,
     fetch_prediction_by_draw,
+    fetch_pension720_draws,
     fetch_stored_draws,
     fetch_unchecked_predictions,
     insert_prediction,
+    save_pension720_draws,
     save_draws,
     update_prediction_result,
 )
@@ -87,11 +91,36 @@ def check_prediction_results() -> list[dict]:
 
 def run_weekly_maintenance() -> dict:
     sync_result = sync_draws()
+    pension720_sync_result = sync_pension720_draws()
     checked = check_prediction_results()
     prediction = generate_weekly_prediction()
 
     return {
         "sync": sync_result,
+        "pension720Sync": pension720_sync_result,
         "checkedCount": len(checked),
         "prediction": prediction,
+    }
+
+
+def sync_pension720_draws() -> dict:
+    existing_latest = fetch_latest_pension720_draw()
+    recent_draws = fetch_recent_pension720_draws()
+    if not recent_draws:
+        return {"synced": 0, "latestDraw": existing_latest["drawNo"] if existing_latest else None}
+
+    if not existing_latest:
+        saved = save_pension720_draws(recent_draws)
+        return {
+            "synced": len(saved),
+            "firstDraw": saved[0]["drawNo"] if saved else None,
+            "latestDraw": saved[-1]["drawNo"] if saved else None,
+        }
+
+    missing = [draw for draw in recent_draws if draw["drawNo"] > existing_latest["drawNo"]]
+    saved = save_pension720_draws(missing) if missing else []
+    return {
+        "synced": len(saved),
+        "firstDraw": saved[0]["drawNo"] if saved else None,
+        "latestDraw": saved[-1]["drawNo"] if saved else existing_latest["drawNo"],
     }

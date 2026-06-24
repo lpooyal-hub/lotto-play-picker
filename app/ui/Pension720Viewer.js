@@ -1,7 +1,31 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import pension720Draws from '../../data/pension720Draws.json';
+import { useEffect, useMemo, useState } from 'react';
+
+function formatDrawDate(value) {
+  if (!value) return '날짜 정보 없음';
+
+  try {
+    return new Intl.DateTimeFormat('ko-KR', {
+      dateStyle: 'medium',
+    }).format(new Date(value));
+  } catch {
+    return value;
+  }
+}
+
+async function readJsonResponse(response) {
+  const text = await response.text();
+  if (!text.trim()) {
+    throw new Error(`서버가 빈 응답을 반환했습니다. (${response.status})`);
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`서버 응답을 JSON으로 읽지 못했습니다. (${response.status})`);
+  }
+}
 
 function digitTier(number) {
   if (number <= 1) return 1;
@@ -45,7 +69,7 @@ function computeStats(draws) {
     {
       label: '최신 당첨 조',
       value: latest ? `${latest.group}조` : '-',
-      caption: latest ? `${latest.winningNumber}` : '데이터 없음',
+      caption: latest ? `${latest.winningNumber} / ${formatDrawDate(latest.drawDate)}` : '데이터 없음',
     },
     {
       label: '가장 많이 나온 조',
@@ -61,12 +85,13 @@ function computeStats(draws) {
 }
 
 export default function Pension720Viewer() {
-  const draws = pension720Draws;
-  const latest = draws.at(-1);
-  const stats = useMemo(() => computeStats(draws), [draws]);
-  const [openCards, setOpenCards] = useState(() =>
-    Object.fromEntries(draws.slice(-12).map((draw, index, arr) => [draw.drawNo, index === arr.length - 1])),
-  );
+  const [draws, setDraws] = useState([]);
+  const [status, setStatus] = useState('불러오는 중');
+  const [summary, setSummary] = useState('연금720 저장 기록을 불러오는 중입니다.');
+  const [error, setError] = useState('');
+  const latest = draws[0];
+  const stats = useMemo(() => computeStats([...draws].reverse()), [draws]);
+  const [openCards, setOpenCards] = useState({});
 
   function toggleCard(drawNo) {
     setOpenCards((current) => ({
@@ -74,6 +99,40 @@ export default function Pension720Viewer() {
       [drawNo]: !current[drawNo],
     }));
   }
+
+  async function loadDraws() {
+    setStatus('불러오는 중');
+    setError('');
+    try {
+      const response = await fetch('/api/pension720/draws', { cache: 'no-store' });
+      const data = await readJsonResponse(response);
+      const nextDraws = data.draws || [];
+      if (!response.ok) {
+        throw new Error(data.error || '연금720 기록 조회 실패');
+      }
+      setDraws(nextDraws);
+      setOpenCards((current) => {
+        const next = {};
+        nextDraws.forEach((draw) => {
+          next[draw.drawNo] = current[draw.drawNo] ?? false;
+        });
+        return next;
+      });
+      setSummary(
+        nextDraws.length
+          ? `${nextDraws[0].drawNo}회차까지 저장되어 있습니다. 새 회차가 반영되면 여기서 바로 확인할 수 있습니다.`
+          : '아직 저장된 연금720 기록이 없습니다. 초기 데이터 적재 또는 동기화가 먼저 필요합니다.',
+      );
+      setStatus(nextDraws.length ? '준비 완료' : '기록 없음');
+    } catch (err) {
+      setStatus('오류');
+      setError(err.message);
+    }
+  }
+
+  useEffect(() => {
+    loadDraws().catch(() => undefined);
+  }, []);
 
   return (
     <>
@@ -94,24 +153,34 @@ export default function Pension720Viewer() {
               <p className="panel-kicker">Pension 720+</p>
               <h2>최신 당첨 결과</h2>
             </div>
-            <span className="status-badge">기록형</span>
+            <span className="status-badge">{status}</span>
           </div>
 
           <p className="summary">
             연금복권720+는 로또처럼 조합 추천보다 회차별 당첨 결과를 보기 좋게 쌓아두는 쪽이 먼저입니다.
-            프로젝트 폴더의 엑셀 데이터를 기준으로 최신 회차까지 정리했습니다.
+            현재는 Supabase에 저장된 최신 결과를 불러오며, 이후 자동 동기화 기반으로 운영할 수 있게 연결합니다.
           </p>
+
+          <div className="actions">
+            <button className="secondary" type="button" onClick={loadDraws}>
+              기록 새로고침
+            </button>
+          </div>
+
+          <p className="summary">{summary}</p>
+
+          {error ? <p className="error-message">{error}</p> : null}
 
           {latest ? (
             <div className="winning-summary">
               <div className="winning-summary-header">
                 <span>{latest.drawNo}회 당첨 결과</span>
-                <span>{latest.group}조</span>
+                <span>{formatDrawDate(latest.drawDate)}</span>
               </div>
               <div className="winning-row">
                 <DigitBalls digits={latest.digits} />
                 <div className="bonus-pill">
-                  <span>본번호</span>
+                  <span>{latest.group}조</span>
                   <strong className="pension-number-text">{latest.winningNumber}</strong>
                 </div>
               </div>
@@ -147,14 +216,15 @@ export default function Pension720Viewer() {
 
         <div className="history-list">
           {draws
-            .slice(-20)
-            .reverse()
             .map((draw) => (
               <article key={draw.drawNo} className="history-card">
                 <button className="history-toggle" type="button" onClick={() => toggleCard(draw.drawNo)}>
                   <div className="history-toggle-copy">
                     <span>{draw.drawNo}회</span>
-                    <span>{draw.group}조 / {draw.winningNumber}</span>
+                    <span>
+                      {draw.group}조 / {draw.winningNumber}
+                      {draw.drawDate ? ` / ${formatDrawDate(draw.drawDate)}` : ''}
+                    </span>
                   </div>
                   <span className={`history-toggle-icon ${openCards[draw.drawNo] ? 'open' : ''}`}>⌄</span>
                 </button>
