@@ -7,19 +7,27 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from .config import settings
-from .service import run_weekly_maintenance
+from .service import run_lotto_maintenance, run_pension720_maintenance
 
 logger = logging.getLogger(__name__)
 
 _scheduler: BackgroundScheduler | None = None
 
 
-def _run_weekly_job() -> None:
+def _run_lotto_job() -> None:
     try:
-        result = run_weekly_maintenance()
-        logger.info("Weekly lotto maintenance completed: %s", result)
+        result = run_lotto_maintenance()
+        logger.info("Lotto maintenance completed: %s", result)
     except Exception:
-        logger.exception("Weekly lotto maintenance failed")
+        logger.exception("Lotto maintenance failed")
+
+
+def _run_pension720_job() -> None:
+    try:
+        result = run_pension720_maintenance()
+        logger.info("Pension720 maintenance completed: %s", result)
+    except Exception:
+        logger.exception("Pension720 maintenance failed")
 
 
 def get_scheduler() -> BackgroundScheduler:
@@ -28,32 +36,45 @@ def get_scheduler() -> BackgroundScheduler:
     if _scheduler is None:
         timezone = ZoneInfo(settings.scheduler_timezone)
         scheduler = BackgroundScheduler(timezone=timezone)
-        scheduler.add_job(
-            _run_weekly_job,
-            CronTrigger.from_crontab(settings.scheduler_cron, timezone=timezone),
-            id="weekly-lotto-maintenance",
-            replace_existing=True,
-            coalesce=True,
-            max_instances=1,
-        )
+
+        if settings.lotto_scheduler_enabled:
+            scheduler.add_job(
+                _run_lotto_job,
+                CronTrigger.from_crontab(settings.lotto_scheduler_cron, timezone=timezone),
+                id="lotto-maintenance",
+                replace_existing=True,
+                coalesce=True,
+                max_instances=1,
+            )
+
+        if settings.pension720_scheduler_enabled:
+            scheduler.add_job(
+                _run_pension720_job,
+                CronTrigger.from_crontab(settings.pension720_scheduler_cron, timezone=timezone),
+                id="pension720-maintenance",
+                replace_existing=True,
+                coalesce=True,
+                max_instances=1,
+            )
+
         _scheduler = scheduler
 
     return _scheduler
 
 
 def start_scheduler() -> None:
-    if not settings.scheduler_enabled:
-        logger.info("Weekly scheduler disabled.")
+    if not settings.lotto_scheduler_enabled and not settings.pension720_scheduler_enabled:
+        logger.info("All schedulers disabled.")
         return
 
     scheduler = get_scheduler()
     if not scheduler.running:
         scheduler.start()
-        logger.info(
-            "Weekly scheduler started with cron '%s' (%s).",
-            settings.scheduler_cron,
-            settings.scheduler_timezone,
-        )
+        logger.info("Schedulers started (%s).", settings.scheduler_timezone)
+        if settings.lotto_scheduler_enabled:
+            logger.info("Lotto scheduler cron: %s", settings.lotto_scheduler_cron)
+        if settings.pension720_scheduler_enabled:
+            logger.info("Pension720 scheduler cron: %s", settings.pension720_scheduler_cron)
 
 
 def shutdown_scheduler() -> None:

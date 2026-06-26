@@ -100,20 +100,24 @@ def check_prediction_results() -> list[dict]:
 
 
 def run_weekly_maintenance() -> dict:
+    lotto_result = run_lotto_maintenance()
+    pension720_result = run_pension720_maintenance()
+
+    return {
+        **lotto_result,
+        **pension720_result,
+    }
+
+
+def run_lotto_maintenance() -> dict:
     sync_result = sync_draws()
-    pension720_sync_result = sync_pension720_draws()
     checked = check_prediction_results()
     prediction = generate_weekly_prediction()
-    pension720_checked = check_pension720_prediction_results()
-    pension720_prediction = generate_weekly_pension720_prediction()
 
     return {
         "sync": sync_result,
-        "pension720Sync": pension720_sync_result,
         "checkedCount": len(checked),
         "prediction": prediction,
-        "pension720CheckedCount": len(pension720_checked),
-        "pension720Prediction": pension720_prediction,
     }
 
 
@@ -137,6 +141,18 @@ def sync_pension720_draws() -> dict:
         "synced": len(saved),
         "firstDraw": saved[0]["drawNo"] if saved else None,
         "latestDraw": saved[-1]["drawNo"] if saved else existing_latest["drawNo"],
+    }
+
+
+def run_pension720_maintenance() -> dict:
+    pension720_sync_result = sync_pension720_draws()
+    pension720_checked = check_pension720_prediction_results()
+    pension720_prediction = generate_weekly_pension720_prediction()
+
+    return {
+        "pension720Sync": pension720_sync_result,
+        "pension720CheckedCount": len(pension720_checked),
+        "pension720Prediction": pension720_prediction,
     }
 
 

@@ -8,8 +8,8 @@
 
 운영 흐름은 매 요청마다 계산하는 방식이 아닙니다.
 
-1. Docker 백엔드가 매주 토요일 밤 자동으로 주간 배치를 실행합니다.
-2. 배치는 동행복권 페이지를 Playwright로 열어 최신 회차를 확인하고 Supabase `lotto_draws`를 동기화합니다.
+1. Docker 백엔드가 로또/연금720 스케줄을 따로 실행합니다.
+2. 로또는 동행복권 페이지를 통해 최신 회차를 확인하고, 연금720는 공식 JSON endpoint를 통해 최신 회차를 확인합니다.
 3. 지난 추천 기록이 있으면 실제 당첨 번호와 비교해 적중 결과를 갱신합니다.
 4. 다음 회차용 추천 5조합을 Supabase `lotto_predictions`에 저장합니다.
 5. 화면은 저장된 추천 기록만 조회해서 보여줍니다.
@@ -29,7 +29,8 @@
 - FastAPI backend for Docker deployment
 - Supabase Postgres
 - Supabase에 저장한 회차 캐시
-- Playwright (동행복권 회차 확인용)
+- Playwright (로또 회차 확인용)
+- 동행복권 연금720 공식 JSON endpoint
 
 ## Supabase Table
 
@@ -137,24 +138,20 @@ NEXT_PUBLIC_API_BASE_URL=
 백엔드 자동 스케줄러를 함께 쓸 경우:
 
 ```bash
-ENABLE_WEEKLY_SCHEDULER=true
-WEEKLY_SCHEDULER_CRON=35 21 * * 6
+ENABLE_LOTTO_SCHEDULER=true
+LOTTO_SCHEDULER_CRON=35 21 * * 6
+ENABLE_PENSION720_SCHEDULER=true
+PENSION720_SCHEDULER_CRON=10 19 * * 4
 WEEKLY_SCHEDULER_TIMEZONE=Asia/Seoul
 ```
 
-현재 기본값 `35 21 * * 6` 는 로또 기준 스케줄입니다.
+기본 동작:
 
-- 로또 6/45: 토요일 밤 배치 기준으로 사용
-- 연금복권720+: 목요일 추첨 직후 반영이 필요하면 별도 수동 호출 또는 스케줄 분리가 필요
+- 로또 6/45: `LOTTO_SCHEDULER_CRON=35 21 * * 6`
+- 연금복권720+: `PENSION720_SCHEDULER_CRON=10 19 * * 4`
+- 공통 시간대: `WEEKLY_SCHEDULER_TIMEZONE=Asia/Seoul`
 
-연금720를 목요일 추첨 직후에 자동 반영하고 싶다면, 백엔드 스케줄을 분리하거나 임시로 아래처럼 바꿔 운영할 수 있습니다.
-
-```bash
-WEEKLY_SCHEDULER_CRON=10 19 * * 4
-WEEKLY_SCHEDULER_TIMEZONE=Asia/Seoul
-```
-
-주의: 위처럼 바꾸면 주간 자동 배치 전체가 목요일 기준으로 동작하므로, 로또와 연금720를 완전히 분리 운영하려면 스케줄러를 둘로 나누는 편이 더 안전합니다.
+하위 호환을 위해 기존 `ENABLE_WEEKLY_SCHEDULER`, `WEEKLY_SCHEDULER_CRON`도 남아 있지만, 이제는 위의 게임별 스케줄 환경변수를 우선 사용하는 편이 맞습니다.
 
 ## Local Development
 
@@ -173,7 +170,10 @@ docker compose up -d --build
 
 기본 포트 매핑은 `8020:8000`입니다. OCI 인바운드 포트를 추가로 열지 않고, 기존 443 nginx에서 `lotto.42222.cloud`를 `http://172.17.0.1:8020/`로 프록시하는 구성을 사용합니다.
 
-기본 설정에서는 Docker 컨테이너 안의 주간 스케줄러가 `매주 토요일 21:35 (Asia/Seoul)`에 자동 실행됩니다.
+기본 설정에서는 Docker 컨테이너 안에서 아래 두 스케줄이 각각 자동 실행됩니다.
+
+- 로또: `매주 토요일 21:35 (Asia/Seoul)`
+- 연금720: `매주 목요일 19:10 (Asia/Seoul)`
 
 현재 `lotto.42222.cloud` 의 `/api/...` 요청은 Vercel Functions가 아니라 FastAPI 백엔드가 직접 처리합니다. 따라서 실제 운영 기준 API 반영은 `docker compose up -d --build` 후 컨테이너 재시작이 필요합니다.
 
