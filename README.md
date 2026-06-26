@@ -133,7 +133,7 @@ NEXT_PUBLIC_API_BASE_URL=
 ```
 
 `SUPABASE_SECRET_KEY`는 Vercel 서버 함수에서만 사용합니다. 브라우저에 노출하지 마세요.
-`NEXT_PUBLIC_API_BASE_URL`은 프론트가 별도 백엔드를 볼 때만 설정합니다. 예: `https://lotto.42222.cloud`
+`NEXT_PUBLIC_API_BASE_URL`은 프론트가 별도 백엔드를 볼 때만 설정합니다. 공개 예시 주소는 `https://lotto-play-picker.vercel.app` 처럼 두는 편이 안전합니다.
 
 백엔드 자동 스케줄러를 함께 쓸 경우:
 
@@ -168,37 +168,37 @@ OCI 서버에서는 FastAPI 백엔드만 Docker로 띄울 수 있습니다.
 docker compose up -d --build
 ```
 
-기본 포트 매핑은 `8020:8000`입니다. OCI 인바운드 포트를 추가로 열지 않고, 기존 443 nginx에서 `lotto.42222.cloud`를 `http://172.17.0.1:8020/`로 프록시하는 구성을 사용합니다.
+기본 포트 매핑은 컨테이너의 `8000` 포트를 외부에서 접근 가능한 내부 포트로 연결하는 방식입니다. 운영 환경에서는 reverse proxy 또는 gateway를 통해 HTTPS 도메인으로 노출하는 구성을 권장합니다.
 
 기본 설정에서는 Docker 컨테이너 안에서 아래 두 스케줄이 각각 자동 실행됩니다.
 
 - 로또: `매주 토요일 21:35 (Asia/Seoul)`
 - 연금720: `매주 목요일 19:10 (Asia/Seoul)`
 
-현재 `lotto.42222.cloud` 의 `/api/...` 요청은 Vercel Functions가 아니라 FastAPI 백엔드가 직접 처리합니다. 따라서 실제 운영 기준 API 반영은 `docker compose up -d --build` 후 컨테이너 재시작이 필요합니다.
+현재 운영 구성에서는 `/api/...` 요청을 Vercel Functions가 아니라 FastAPI 백엔드가 직접 처리할 수 있습니다. 따라서 실제 운영 기준 API 반영은 `docker compose up -d --build` 후 컨테이너 재시작이 필요할 수 있습니다.
 
 수동 실행:
 
 ```bash
-curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto.42222.cloud/api/sync-draws
-curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto.42222.cloud/api/generate-weekly
-curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto.42222.cloud/api/check-result
-curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto.42222.cloud/api/run-weekly-maintenance
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto-play-picker.vercel.app/api/sync-draws
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto-play-picker.vercel.app/api/generate-weekly
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto-play-picker.vercel.app/api/check-result
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto-play-picker.vercel.app/api/run-weekly-maintenance
 ```
 
 연금720 수동 실행:
 
 ```bash
-curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto.42222.cloud/api/sync-pension720-draws
-curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto.42222.cloud/api/check-pension720-result
-curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto.42222.cloud/api/generate-pension720-weekly
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto-play-picker.vercel.app/api/sync-pension720-draws
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto-play-picker.vercel.app/api/check-pension720-result
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto-play-picker.vercel.app/api/generate-pension720-weekly
 ```
 
 확인용 조회:
 
 ```bash
-curl https://lotto.42222.cloud/api/pension720/predictions
-curl https://lotto.42222.cloud/api/pension720/draws
+curl https://lotto-play-picker.vercel.app/api/pension720/predictions
+curl https://lotto-play-picker.vercel.app/api/pension720/draws
 ```
 
 ## API Routes
