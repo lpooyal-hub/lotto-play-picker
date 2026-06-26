@@ -15,6 +15,7 @@ from .store import (
     fetch_prediction_by_draw,
     fetch_pension720_prediction_by_draw,
     fetch_pension720_predictions,
+    fetch_recent_pension720_prediction_picks,
     fetch_pension720_draws,
     fetch_stored_draws,
     fetch_unchecked_pension720_predictions,
@@ -167,7 +168,14 @@ def generate_weekly_pension720_prediction() -> dict:
         return existing
 
     draws = fetch_pension720_draws()
-    picks = generate_pension720_predictions(draws, count=5)
+    recent_prediction_rows = fetch_recent_pension720_prediction_picks(limit=2)
+    recent_prediction_picks = [
+        pick
+        for row in recent_prediction_rows
+        for pick in row.get("picks", [])
+        if isinstance(pick, dict) and pick.get("group") and pick.get("number") and pick.get("digits")
+    ]
+    picks = generate_pension720_predictions(draws, count=5, recent_prediction_picks=recent_prediction_picks)
     return insert_pension720_prediction(target_draw_no, picks)
 
 

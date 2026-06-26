@@ -6,8 +6,10 @@ services:
     env_file:
       - .env.local
     environment:
-      ENABLE_WEEKLY_SCHEDULER: "true"
-      WEEKLY_SCHEDULER_CRON: "35 21 * * 6"
+      ENABLE_LOTTO_SCHEDULER: "true"
+      LOTTO_SCHEDULER_CRON: "35 21 * * 6"
+      ENABLE_PENSION720_SCHEDULER: "true"
+      PENSION720_SCHEDULER_CRON: "10 19 * * 4"
       WEEKLY_SCHEDULER_TIMEZONE: "Asia/Seoul"
     ports:
       - "8020:8000"

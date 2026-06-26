@@ -373,10 +373,35 @@ def pension720_too_similar(left: dict, right: dict) -> bool:
     return False
 
 
-def generate_pension720_predictions(draws: list[dict], count: int = 5) -> list[dict]:
+def pension720_similarity_penalty(candidate: dict, recent_picks: list[dict]) -> float:
+    penalty = 0.0
+    for previous in recent_picks:
+        if candidate["group"] == previous["group"] and candidate["number"] == previous["number"]:
+            return 10.0
+
+        same_position_count = sum(
+            1 for idx in range(PENSION720_DIGIT_COUNT) if int(candidate["digits"][idx]) == int(previous["digits"][idx])
+        )
+
+        if candidate["group"] == previous["group"]:
+            penalty += same_position_count * 0.08
+        else:
+            penalty += same_position_count * 0.03
+
+        if candidate["number"][-3:] == previous["number"][-3:]:
+            penalty += 0.2
+
+        if candidate["number"][-2:] == previous["number"][-2:]:
+            penalty += 0.08
+
+    return penalty
+
+
+def generate_pension720_predictions(draws: list[dict], count: int = 5, recent_prediction_picks: list[dict] | None = None) -> list[dict]:
     if not draws:
         raise RuntimeError("No pension720 draw history available.")
 
+    recent_prediction_picks = recent_prediction_picks or []
     history_set = {f"{draw['group']}-{draw['winningNumber']}" for draw in draws}
     group_stats = build_pension720_group_scores(draws)
     position_stats = build_pension720_position_digit_scores(draws)
@@ -398,6 +423,9 @@ def generate_pension720_predictions(draws: list[dict], count: int = 5) -> list[d
                                 if f"{group}-{number}" in history_set:
                                     continue
                                 candidate = {"group": group, "digits": digits, "number": number}
+                                similarity_penalty = pension720_similarity_penalty(candidate, recent_prediction_picks)
+                                if similarity_penalty >= 10:
+                                    continue
                                 candidates.append(
                                     {
                                         **candidate,
@@ -407,7 +435,8 @@ def generate_pension720_predictions(draws: list[dict], count: int = 5) -> list[d
                                             position_stats,
                                             suffix2_scores,
                                             suffix3_scores,
-                                        ),
+                                        )
+                                        - similarity_penalty,
                                     }
                                 )
 

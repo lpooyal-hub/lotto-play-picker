@@ -97,6 +97,17 @@ def fetch_pension720_predictions(limit: int = 20) -> list[dict]:
     return _request("GET", f"pension720_predictions?select=*&order=target_draw_no.desc&limit={limit}") or []
 
 
+def fetch_recent_pension720_prediction_picks(limit: int = 2) -> list[dict]:
+    rows = (
+        _request(
+            "GET",
+            f"pension720_predictions?select=target_draw_no,picks&order=target_draw_no.desc&limit={limit}",
+        )
+        or []
+    )
+    return rows
+
+
 def fetch_pension720_prediction_by_draw(target_draw_no: int) -> dict | None:
     rows = _request("GET", f"pension720_predictions?select=*&target_draw_no=eq.{target_draw_no}&limit=1") or []
     return rows[0] if rows else None
