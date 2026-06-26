@@ -20,6 +20,7 @@
 2. 최신 당첨 회차 기준으로 다음 회차용 예측 5개를 Supabase `pension720_predictions`에 저장합니다.
 3. 추첨 후 실제 당첨번호와 비교해 등수/끝수 일치 결과를 기록합니다.
 4. 화면은 연금720 예측 기록과 실제 결과를 따로 보여줍니다.
+5. 통계와 히스토리는 `예측을 생성한 회차부터` 누적 기록만 기준으로 계산합니다.
 
 ## Stack
 
@@ -141,6 +142,20 @@ WEEKLY_SCHEDULER_CRON=35 21 * * 6
 WEEKLY_SCHEDULER_TIMEZONE=Asia/Seoul
 ```
 
+현재 기본값 `35 21 * * 6` 는 로또 기준 스케줄입니다.
+
+- 로또 6/45: 토요일 밤 배치 기준으로 사용
+- 연금복권720+: 목요일 추첨 직후 반영이 필요하면 별도 수동 호출 또는 스케줄 분리가 필요
+
+연금720를 목요일 추첨 직후에 자동 반영하고 싶다면, 백엔드 스케줄을 분리하거나 임시로 아래처럼 바꿔 운영할 수 있습니다.
+
+```bash
+WEEKLY_SCHEDULER_CRON=10 19 * * 4
+WEEKLY_SCHEDULER_TIMEZONE=Asia/Seoul
+```
+
+주의: 위처럼 바꾸면 주간 자동 배치 전체가 목요일 기준으로 동작하므로, 로또와 연금720를 완전히 분리 운영하려면 스케줄러를 둘로 나누는 편이 더 안전합니다.
+
 ## Local Development
 
 ```bash
@@ -160,6 +175,8 @@ docker compose up -d --build
 
 기본 설정에서는 Docker 컨테이너 안의 주간 스케줄러가 `매주 토요일 21:35 (Asia/Seoul)`에 자동 실행됩니다.
 
+현재 `lotto.42222.cloud` 의 `/api/...` 요청은 Vercel Functions가 아니라 FastAPI 백엔드가 직접 처리합니다. 따라서 실제 운영 기준 API 반영은 `docker compose up -d --build` 후 컨테이너 재시작이 필요합니다.
+
 수동 실행:
 
 ```bash
@@ -167,6 +184,21 @@ curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto.42222.cloud/a
 curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto.42222.cloud/api/generate-weekly
 curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto.42222.cloud/api/check-result
 curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto.42222.cloud/api/run-weekly-maintenance
+```
+
+연금720 수동 실행:
+
+```bash
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto.42222.cloud/api/sync-pension720-draws
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto.42222.cloud/api/check-pension720-result
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto.42222.cloud/api/generate-pension720-weekly
+```
+
+확인용 조회:
+
+```bash
+curl https://lotto.42222.cloud/api/pension720/predictions
+curl https://lotto.42222.cloud/api/pension720/draws
 ```
 
 ## API Routes
@@ -186,7 +218,12 @@ FastAPI backend:
 
 - `GET /health`: health check
 - `GET /api/predictions`: 저장된 추천 기록 조회
+- `GET /api/pension720/draws`: 저장된 연금720 당첨 회차 조회
+- `GET /api/pension720/predictions`: 저장된 연금720 예측 기록 조회
 - `POST /api/sync-draws`: 전체 회차 데이터를 Supabase `lotto_draws`에 동기화
+- `POST /api/sync-pension720-draws`: 최신 연금720 회차를 Supabase `pension720_draws`에 동기화
 - `POST /api/generate-weekly`: 다음 회차 추천 생성 후 Supabase 저장
+- `POST /api/generate-pension720-weekly`: 다음 연금720 회차 예측 생성 후 Supabase 저장
 - `POST /api/check-result`: 당첨 번호 확인 후 추천 결과 업데이트
+- `POST /api/check-pension720-result`: 연금720 추첨 결과 확인 후 예측 결과 업데이트
 - `POST /api/run-weekly-maintenance`: 동기화 -> 결과 확인 -> 다음 회차 추천 생성을 한 번에 실행
