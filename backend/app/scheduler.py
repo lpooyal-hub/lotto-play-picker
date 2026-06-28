@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -94,9 +95,13 @@ def start_scheduler() -> None:
 
         # If the container was down during the scheduled time, recover the missed work once on startup.
         if settings.lotto_scheduler_enabled:
-            _run_lotto_startup_catchup()
+            threading.Thread(target=_run_lotto_startup_catchup, name="lotto-startup-catchup", daemon=True).start()
         if settings.pension720_scheduler_enabled:
-            _run_pension720_startup_catchup()
+            threading.Thread(
+                target=_run_pension720_startup_catchup,
+                name="pension720-startup-catchup",
+                daemon=True,
+            ).start()
 
 
 def shutdown_scheduler() -> None:
