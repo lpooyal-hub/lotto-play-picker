@@ -139,23 +139,19 @@ NEXT_PUBLIC_API_BASE_URL=
 
 ```bash
 ENABLE_LOTTO_SCHEDULER=true
-LOTTO_SCHEDULER_CRON=35 21 * * 6
-LOTTO_SCHEDULER_ENSURE_INTERVAL_MINUTES=30
+LOTTO_SCHEDULER_CRON=0 0 * * *
 ENABLE_PENSION720_SCHEDULER=true
-PENSION720_SCHEDULER_CRON=10 19 * * 4
-PENSION720_SCHEDULER_ENSURE_INTERVAL_MINUTES=30
+PENSION720_SCHEDULER_CRON=10 0 * * *
 WEEKLY_SCHEDULER_TIMEZONE=Asia/Seoul
 ```
 
 기본 동작:
 
-- 로또 6/45: `LOTTO_SCHEDULER_CRON=35 21 * * 6`
-- 로또 6/45 보정 확인: `LOTTO_SCHEDULER_ENSURE_INTERVAL_MINUTES=30`
-- 연금복권720+: `PENSION720_SCHEDULER_CRON=10 19 * * 4`
-- 연금복권720+ 보정 확인: `PENSION720_SCHEDULER_ENSURE_INTERVAL_MINUTES=30`
+- 로또 6/45: 매일 `00:00` 점검 후 누락 시 자동 갱신
+- 연금복권720+: 매일 `00:10` 점검 후 누락 시 자동 갱신
 - 공통 시간대: `WEEKLY_SCHEDULER_TIMEZONE=Asia/Seoul`
 
-하위 호환을 위해 기존 `ENABLE_WEEKLY_SCHEDULER`, `WEEKLY_SCHEDULER_CRON`도 남아 있지만, 이제는 위의 게임별 스케줄 환경변수를 우선 사용하는 편이 맞습니다.
+하위 호환을 위해 기존 `ENABLE_WEEKLY_SCHEDULER`, `WEEKLY_SCHEDULER_CRON`도 남아 있지만, 이제는 위의 게임별 스케줄 환경변수를 우선 사용하는 편이 맞습니다. 스케줄러는 지정 시각에 `ensure`를 실행하고, 이미 최신 상태면 아무 작업도 하지 않습니다.
 
 ## Local Development
 
@@ -174,10 +170,10 @@ docker compose up -d --build
 
 기본 포트 매핑은 컨테이너의 `8000` 포트를 외부에서 접근 가능한 내부 포트로 연결하는 방식입니다. 운영 환경에서는 reverse proxy 또는 gateway를 통해 HTTPS 도메인으로 노출하는 구성을 권장합니다.
 
-기본 설정에서는 Docker 컨테이너 안에서 아래 두 스케줄이 각각 자동 실행됩니다.
+기본 설정에서는 Docker 컨테이너 안에서 아래 두 점검 스케줄이 각각 자동 실행됩니다.
 
-- 로또: `매주 토요일 21:35 (Asia/Seoul)`
-- 연금720: `매주 목요일 19:10 (Asia/Seoul)`
+- 로또: `매일 00:00 (Asia/Seoul)`
+- 연금720: `매일 00:10 (Asia/Seoul)`
 
 현재 운영 구성에서는 `/api/...` 요청을 Vercel Functions가 아니라 FastAPI 백엔드가 직접 처리할 수 있습니다. 따라서 실제 운영 기준 API 반영은 `docker compose up -d --build` 후 컨테이너 재시작이 필요할 수 있습니다.
 

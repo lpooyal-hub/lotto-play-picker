@@ -7,9 +7,9 @@ services:
       - .env.local
     environment:
       ENABLE_LOTTO_SCHEDULER: "true"
-      LOTTO_SCHEDULER_CRON: "35 21 * * 6"
+      LOTTO_SCHEDULER_CRON: "0 0 * * *"
       ENABLE_PENSION720_SCHEDULER: "true"
-      PENSION720_SCHEDULER_CRON: "10 19 * * 4"
+      PENSION720_SCHEDULER_CRON: "10 0 * * *"
       WEEKLY_SCHEDULER_TIMEZONE: "Asia/Seoul"
     ports:
       - "8020:8000"

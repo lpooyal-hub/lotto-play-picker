@@ -8,7 +8,7 @@ class Settings:
     scheduler_timezone = os.getenv("WEEKLY_SCHEDULER_TIMEZONE", "Asia/Seoul")
 
     scheduler_enabled = os.getenv("ENABLE_WEEKLY_SCHEDULER", "false").lower() in {"1", "true", "yes", "on"}
-    scheduler_cron = os.getenv("WEEKLY_SCHEDULER_CRON", "35 21 * * 6")
+    scheduler_cron = os.getenv("WEEKLY_SCHEDULER_CRON", "0 0 * * *")
 
     lotto_scheduler_enabled = os.getenv("ENABLE_LOTTO_SCHEDULER", str(scheduler_enabled)).lower() in {
         "1",
@@ -17,7 +17,6 @@ class Settings:
         "on",
     }
     lotto_scheduler_cron = os.getenv("LOTTO_SCHEDULER_CRON", scheduler_cron)
-    lotto_scheduler_ensure_interval_minutes = int(os.getenv("LOTTO_SCHEDULER_ENSURE_INTERVAL_MINUTES", "30"))
 
     pension720_scheduler_enabled = os.getenv("ENABLE_PENSION720_SCHEDULER", str(scheduler_enabled)).lower() in {
         "1",
@@ -25,10 +24,7 @@ class Settings:
         "yes",
         "on",
     }
-    pension720_scheduler_cron = os.getenv("PENSION720_SCHEDULER_CRON", "10 19 * * 4")
-    pension720_scheduler_ensure_interval_minutes = int(
-        os.getenv("PENSION720_SCHEDULER_ENSURE_INTERVAL_MINUTES", "30")
-    )
+    pension720_scheduler_cron = os.getenv("PENSION720_SCHEDULER_CRON", "10 0 * * *")
 
 
 settings = Settings()
