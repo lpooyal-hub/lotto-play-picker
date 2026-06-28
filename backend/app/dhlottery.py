@@ -4,8 +4,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 
 import requests
-
-from .dhlottery_playwright import fetch_draw_with_playwright, fetch_recent_draws_with_playwright
+from .dhlottery_playwright import fetch_draw_with_playwright
 
 LOTTO_API = "https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo="
 FIRST_DRAW_DATE = datetime.fromisoformat("2002-12-07T00:00:00+09:00")
@@ -64,14 +63,20 @@ def fetch_draw_with_fallback(draw_no: int) -> dict | None:
 
 
 def find_latest_draw_no() -> int:
-    recent_draws = fetch_recent_draws_with_playwright()
-    if recent_draws:
-        return recent_draws[-1]["drawNo"]
-
     candidate = estimate_latest_draw_no()
-    min_candidate = max(1, candidate - 100)
+    min_candidate = max(1, candidate - 20)
 
     while candidate >= min_candidate:
+        try:
+            draw = fetch_draw(candidate)
+        except requests.RequestException:
+            draw = None
+
+        if draw:
+            return candidate
+        candidate -= 1
+
+    while candidate >= 1:
         if fetch_draw_with_fallback(candidate):
             return candidate
         candidate -= 1
