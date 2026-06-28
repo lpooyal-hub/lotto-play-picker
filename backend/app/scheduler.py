@@ -30,6 +30,22 @@ def _run_pension720_job() -> None:
         logger.exception("Pension720 maintenance failed")
 
 
+def _run_lotto_startup_catchup() -> None:
+    try:
+        result = run_lotto_maintenance()
+        logger.info("Lotto startup catch-up completed: %s", result)
+    except Exception:
+        logger.exception("Lotto startup catch-up failed")
+
+
+def _run_pension720_startup_catchup() -> None:
+    try:
+        result = run_pension720_maintenance()
+        logger.info("Pension720 startup catch-up completed: %s", result)
+    except Exception:
+        logger.exception("Pension720 startup catch-up failed")
+
+
 def get_scheduler() -> BackgroundScheduler:
     global _scheduler
 
@@ -75,6 +91,12 @@ def start_scheduler() -> None:
             logger.info("Lotto scheduler cron: %s", settings.lotto_scheduler_cron)
         if settings.pension720_scheduler_enabled:
             logger.info("Pension720 scheduler cron: %s", settings.pension720_scheduler_cron)
+
+        # If the container was down during the scheduled time, recover the missed work once on startup.
+        if settings.lotto_scheduler_enabled:
+            _run_lotto_startup_catchup()
+        if settings.pension720_scheduler_enabled:
+            _run_pension720_startup_catchup()
 
 
 def shutdown_scheduler() -> None:
