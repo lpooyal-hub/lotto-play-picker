@@ -4,10 +4,11 @@ import logging
 from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
 
 from .config import settings
-from .service import run_lotto_maintenance, run_pension720_maintenance
+from .service import ensure_lotto_current, ensure_pension720_current, run_lotto_maintenance, run_pension720_maintenance
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ def _run_pension720_job() -> None:
 
 def _run_lotto_startup_catchup() -> None:
     try:
-        result = run_lotto_maintenance()
+        result = ensure_lotto_current()
         logger.info("Lotto startup catch-up completed: %s", result)
     except Exception:
         logger.exception("Lotto startup catch-up failed")
@@ -40,10 +41,26 @@ def _run_lotto_startup_catchup() -> None:
 
 def _run_pension720_startup_catchup() -> None:
     try:
-        result = run_pension720_maintenance()
+        result = ensure_pension720_current()
         logger.info("Pension720 startup catch-up completed: %s", result)
     except Exception:
         logger.exception("Pension720 startup catch-up failed")
+
+
+def _run_lotto_ensure_job() -> None:
+    try:
+        result = ensure_lotto_current()
+        logger.info("Lotto ensure check completed: %s", result)
+    except Exception:
+        logger.exception("Lotto ensure check failed")
+
+
+def _run_pension720_ensure_job() -> None:
+    try:
+        result = ensure_pension720_current()
+        logger.info("Pension720 ensure check completed: %s", result)
+    except Exception:
+        logger.exception("Pension720 ensure check failed")
 
 
 def get_scheduler() -> BackgroundScheduler:
@@ -62,12 +79,28 @@ def get_scheduler() -> BackgroundScheduler:
                 coalesce=True,
                 max_instances=1,
             )
+            scheduler.add_job(
+                _run_lotto_ensure_job,
+                IntervalTrigger(minutes=settings.lotto_scheduler_ensure_interval_minutes, timezone=timezone),
+                id="lotto-ensure",
+                replace_existing=True,
+                coalesce=True,
+                max_instances=1,
+            )
 
         if settings.pension720_scheduler_enabled:
             scheduler.add_job(
                 _run_pension720_job,
                 CronTrigger.from_crontab(settings.pension720_scheduler_cron, timezone=timezone),
                 id="pension720-maintenance",
+                replace_existing=True,
+                coalesce=True,
+                max_instances=1,
+            )
+            scheduler.add_job(
+                _run_pension720_ensure_job,
+                IntervalTrigger(minutes=settings.pension720_scheduler_ensure_interval_minutes, timezone=timezone),
+                id="pension720-ensure",
                 replace_existing=True,
                 coalesce=True,
                 max_instances=1,
@@ -89,8 +122,16 @@ def start_scheduler() -> None:
         logger.info("Schedulers started (%s).", settings.scheduler_timezone)
         if settings.lotto_scheduler_enabled:
             logger.info("Lotto scheduler cron: %s", settings.lotto_scheduler_cron)
+            logger.info(
+                "Lotto ensure interval: every %s minutes",
+                settings.lotto_scheduler_ensure_interval_minutes,
+            )
         if settings.pension720_scheduler_enabled:
             logger.info("Pension720 scheduler cron: %s", settings.pension720_scheduler_cron)
+            logger.info(
+                "Pension720 ensure interval: every %s minutes",
+                settings.pension720_scheduler_ensure_interval_minutes,
+            )
 
         # If the container was down during the scheduled time, recover the missed work once on startup.
         if settings.lotto_scheduler_enabled:

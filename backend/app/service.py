@@ -122,6 +122,40 @@ def run_lotto_maintenance() -> dict:
     }
 
 
+def ensure_lotto_current() -> dict:
+    latest_stored_draw = fetch_latest_stored_draw()
+    latest_live_draw_no = find_latest_draw_no()
+    latest_stored_draw_no = latest_stored_draw["drawNo"] if latest_stored_draw else 0
+    target_draw_no = latest_live_draw_no + 1
+    existing_prediction = fetch_prediction_by_draw(target_draw_no)
+    unchecked_predictions = fetch_unchecked_predictions(latest_live_draw_no)
+
+    maintenance_needed = (
+        latest_stored_draw_no < latest_live_draw_no
+        or existing_prediction is None
+        or bool(unchecked_predictions)
+    )
+
+    if not maintenance_needed:
+        return {
+            "ok": True,
+            "needed": False,
+            "latestStoredDraw": latest_stored_draw_no,
+            "latestLiveDraw": latest_live_draw_no,
+            "targetDraw": target_draw_no,
+        }
+
+    result = run_lotto_maintenance()
+    return {
+        "ok": True,
+        "needed": True,
+        "latestStoredDraw": latest_stored_draw_no,
+        "latestLiveDraw": latest_live_draw_no,
+        "targetDraw": target_draw_no,
+        **result,
+    }
+
+
 def sync_pension720_draws() -> dict:
     existing_latest = fetch_latest_pension720_draw()
     recent_draws = fetch_recent_pension720_draws()
@@ -154,6 +188,41 @@ def run_pension720_maintenance() -> dict:
         "pension720Sync": pension720_sync_result,
         "pension720CheckedCount": len(pension720_checked),
         "pension720Prediction": pension720_prediction,
+    }
+
+
+def ensure_pension720_current() -> dict:
+    latest_stored_draw = fetch_latest_pension720_draw()
+    recent_draws = fetch_recent_pension720_draws()
+    latest_live_draw_no = recent_draws[-1]["drawNo"] if recent_draws else (latest_stored_draw["drawNo"] if latest_stored_draw else 0)
+    latest_stored_draw_no = latest_stored_draw["drawNo"] if latest_stored_draw else 0
+    target_draw_no = latest_live_draw_no + 1
+    existing_prediction = fetch_pension720_prediction_by_draw(target_draw_no)
+    unchecked_predictions = fetch_unchecked_pension720_predictions(latest_live_draw_no)
+
+    maintenance_needed = (
+        latest_stored_draw_no < latest_live_draw_no
+        or existing_prediction is None
+        or bool(unchecked_predictions)
+    )
+
+    if not maintenance_needed:
+        return {
+            "ok": True,
+            "needed": False,
+            "latestStoredDraw": latest_stored_draw_no,
+            "latestLiveDraw": latest_live_draw_no,
+            "targetDraw": target_draw_no,
+        }
+
+    result = run_pension720_maintenance()
+    return {
+        "ok": True,
+        "needed": True,
+        "latestStoredDraw": latest_stored_draw_no,
+        "latestLiveDraw": latest_live_draw_no,
+        "targetDraw": target_draw_no,
+        **result,
     }
 
 
