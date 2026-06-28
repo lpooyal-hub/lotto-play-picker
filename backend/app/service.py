@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from .pension720 import fetch_recent_pension720_draws
 from .dhlottery import fetch_draw, fetch_draw_with_fallback, fetch_history, find_latest_draw_no
 from .picker import (
@@ -27,6 +29,8 @@ from .store import (
     update_pension720_prediction_result,
     update_prediction_result,
 )
+
+logger = logging.getLogger("uvicorn.error")
 
 
 def sync_draws() -> dict:
@@ -123,18 +127,24 @@ def run_lotto_maintenance() -> dict:
 
 
 def ensure_lotto_current() -> dict:
+    logger.info("Lotto ensure: starting")
     latest_stored_draw = fetch_latest_stored_draw()
+    logger.info("Lotto ensure: latest stored draw=%s", latest_stored_draw["drawNo"] if latest_stored_draw else None)
     latest_live_draw_no = find_latest_draw_no()
+    logger.info("Lotto ensure: latest live draw=%s", latest_live_draw_no)
     latest_stored_draw_no = latest_stored_draw["drawNo"] if latest_stored_draw else 0
     target_draw_no = latest_live_draw_no + 1
     existing_prediction = fetch_prediction_by_draw(target_draw_no)
+    logger.info("Lotto ensure: target draw=%s existing prediction=%s", target_draw_no, bool(existing_prediction))
     unchecked_predictions = fetch_unchecked_predictions(latest_live_draw_no)
+    logger.info("Lotto ensure: unchecked predictions=%s", len(unchecked_predictions))
 
     maintenance_needed = (
         latest_stored_draw_no < latest_live_draw_no
         or existing_prediction is None
         or bool(unchecked_predictions)
     )
+    logger.info("Lotto ensure: maintenance needed=%s", maintenance_needed)
 
     if not maintenance_needed:
         return {
@@ -145,7 +155,9 @@ def ensure_lotto_current() -> dict:
             "targetDraw": target_draw_no,
         }
 
+    logger.info("Lotto ensure: running maintenance")
     result = run_lotto_maintenance()
+    logger.info("Lotto ensure: maintenance finished")
     return {
         "ok": True,
         "needed": True,
