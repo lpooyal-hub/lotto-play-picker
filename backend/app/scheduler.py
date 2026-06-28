@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+import threading
 from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
-from apscheduler.triggers.date import DateTrigger
 
 from .config import settings
 from .service import ensure_lotto_current, ensure_pension720_current
@@ -64,13 +63,6 @@ def get_scheduler() -> BackgroundScheduler:
                 coalesce=True,
                 max_instances=1,
             )
-            scheduler.add_job(
-                _run_lotto_startup_catchup,
-                DateTrigger(run_date=datetime.now(timezone) + timedelta(seconds=5), timezone=timezone),
-                id="lotto-startup-catchup",
-                replace_existing=True,
-                max_instances=1,
-            )
 
         if settings.pension720_scheduler_enabled:
             scheduler.add_job(
@@ -79,13 +71,6 @@ def get_scheduler() -> BackgroundScheduler:
                 id="pension720-maintenance",
                 replace_existing=True,
                 coalesce=True,
-                max_instances=1,
-            )
-            scheduler.add_job(
-                _run_pension720_startup_catchup,
-                DateTrigger(run_date=datetime.now(timezone) + timedelta(seconds=8), timezone=timezone),
-                id="pension720-startup-catchup",
-                replace_existing=True,
                 max_instances=1,
             )
 
@@ -107,7 +92,11 @@ def start_scheduler() -> None:
             logger.info("Lotto scheduler cron: %s", settings.lotto_scheduler_cron)
         if settings.pension720_scheduler_enabled:
             logger.info("Pension720 scheduler cron: %s", settings.pension720_scheduler_cron)
-        logger.info("Startup catch-up jobs scheduled.")
+        logger.info("Startup catch-up workers scheduled.")
+        if settings.lotto_scheduler_enabled:
+            threading.Timer(2.0, _run_lotto_startup_catchup).start()
+        if settings.pension720_scheduler_enabled:
+            threading.Timer(4.0, _run_pension720_startup_catchup).start()
 
 
 def shutdown_scheduler() -> None:
