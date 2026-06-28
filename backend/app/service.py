@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 
+import requests
+
 from .pension720 import fetch_recent_pension720_draws
 from .dhlottery import (
     fetch_draw,
@@ -214,7 +216,23 @@ def run_pension720_maintenance() -> dict:
 
 def ensure_pension720_current() -> dict:
     latest_stored_draw = fetch_latest_pension720_draw()
-    recent_draws = fetch_recent_pension720_draws()
+    try:
+        recent_draws = fetch_recent_pension720_draws()
+    except requests.RequestException as exc:
+        latest_stored_draw_no = latest_stored_draw["drawNo"] if latest_stored_draw else 0
+        target_draw_no = latest_stored_draw_no + 1
+        existing_prediction = fetch_pension720_prediction_by_draw(target_draw_no)
+        logger.warning("Pension720 ensure: remote fetch timed out, using stored data only: %s", exc)
+        return {
+            "ok": True,
+            "needed": existing_prediction is None,
+            "latestStoredDraw": latest_stored_draw_no,
+            "latestLiveDraw": latest_stored_draw_no,
+            "targetDraw": target_draw_no,
+            "degraded": True,
+            "reason": "remote-timeout",
+        }
+
     latest_live_draw_no = recent_draws[-1]["drawNo"] if recent_draws else (latest_stored_draw["drawNo"] if latest_stored_draw else 0)
     latest_stored_draw_no = latest_stored_draw["drawNo"] if latest_stored_draw else 0
     target_draw_no = latest_live_draw_no + 1
