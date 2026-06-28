@@ -13,10 +13,29 @@ load_env_file() {
     return 0
   fi
 
-  set -a
-  # shellcheck disable=SC1090
-  source "$file_path"
-  set +a
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
+
+    if [[ -z "$line" || "$line" == \#* || "$line" != *=* ]]; then
+      continue
+    fi
+
+    local key="${line%%=*}"
+    local value="${line#*=}"
+
+    key="${key%"${key##*[![:space:]]}"}"
+    value="${value#"${value%%[![:space:]]*}"}"
+    value="${value%"${value##*[![:space:]]}"}"
+
+    if [[ "$value" == \"*\" && "$value" == *\" ]]; then
+      value="${value:1:-1}"
+    elif [[ "$value" == \'*\' && "$value" == *\' ]]; then
+      value="${value:1:-1}"
+    fi
+
+    export "$key=$value"
+  done < "$file_path"
 }
 
 load_env_file "$ENV_LOCAL"
