@@ -3,7 +3,13 @@ from __future__ import annotations
 import logging
 
 from .pension720 import fetch_recent_pension720_draws
-from .dhlottery import fetch_draw, fetch_draw_with_fallback, fetch_history, find_latest_draw_no
+from .dhlottery import (
+    fetch_draw,
+    fetch_draw_with_fallback,
+    fetch_history,
+    find_latest_draw_no,
+    find_latest_draw_no_from_known,
+)
 from .picker import (
     compare_pick_with_draw,
     compare_pension720_pick_with_draw,
@@ -45,7 +51,7 @@ def sync_draws() -> dict:
         }
 
     latest_stored_draw_no = latest_stored_draw["drawNo"]
-    latest_live_draw_no = find_latest_draw_no()
+    latest_live_draw_no = find_latest_draw_no_from_known(latest_stored_draw_no)
     missing_draws = []
 
     for draw_no in range(latest_stored_draw_no + 1, latest_live_draw_no + 1):
@@ -130,7 +136,10 @@ def ensure_lotto_current() -> dict:
     logger.info("Lotto ensure: starting")
     latest_stored_draw = fetch_latest_stored_draw()
     logger.info("Lotto ensure: latest stored draw=%s", latest_stored_draw["drawNo"] if latest_stored_draw else None)
-    latest_live_draw_no = find_latest_draw_no()
+    if latest_stored_draw:
+        latest_live_draw_no = find_latest_draw_no_from_known(latest_stored_draw["drawNo"])
+    else:
+        latest_live_draw_no = find_latest_draw_no()
     logger.info("Lotto ensure: latest live draw=%s", latest_live_draw_no)
     latest_stored_draw_no = latest_stored_draw["drawNo"] if latest_stored_draw else 0
     target_draw_no = latest_live_draw_no + 1
