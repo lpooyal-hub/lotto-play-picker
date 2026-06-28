@@ -76,12 +76,7 @@ def find_latest_draw_no() -> int:
             return candidate
         candidate -= 1
 
-    while candidate >= 1:
-        if fetch_draw_with_fallback(candidate):
-            return candidate
-        candidate -= 1
-
-    raise RuntimeError("Could not determine latest lotto draw number from dhlottery.")
+    raise RuntimeError("Could not determine latest lotto draw number from lotto API.")
 
 
 def fetch_history() -> list[dict]:
