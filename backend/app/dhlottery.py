@@ -70,7 +70,12 @@ def find_latest_draw_no_from_known(known_draw_no: int) -> int:
         try:
             draw = fetch_draw(candidate)
         except requests.RequestException:
-            draw = None
+            fallback_draw = fetch_draw_with_fallback(candidate)
+            if fallback_draw:
+                latest = candidate
+                candidate += 1
+                continue
+            raise
 
         if not draw:
             return latest
