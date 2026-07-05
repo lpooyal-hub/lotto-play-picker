@@ -78,6 +78,11 @@ def find_latest_draw_no_from_known(known_draw_no: int) -> int:
             raise
 
         if not draw:
+            fallback_draw = fetch_draw_with_fallback(candidate)
+            if fallback_draw:
+                latest = candidate
+                candidate += 1
+                continue
             return latest
 
         latest = candidate
