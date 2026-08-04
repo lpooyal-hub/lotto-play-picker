@@ -1,6 +1,6 @@
 import { fetchHistory } from '../../../lib/dhlottery';
 import { assertEnoughDraws, fetchStoredDraws, saveDraws } from '../../../lib/drawStore';
-import { generateCombinations } from '../../../lib/picker';
+import { generateCombinations, LOTTO_MODEL_VERSION } from '../../../lib/picker';
 
 export async function POST(request) {
   try {
@@ -18,6 +18,7 @@ export async function POST(request) {
 
     return Response.json({
       picks,
+      modelVersion: LOTTO_MODEL_VERSION,
       history: {
         firstDraw: draws[0]?.drawNo,
         latestDraw: draws[draws.length - 1]?.drawNo,

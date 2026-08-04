@@ -1,43 +1,67 @@
 # Lotto Play Picker
 
-로또 6/45와 연금복권720+ 당첨 데이터를 수집·분석하고, 스케줄러 기반 추천 조합 생성, 실제 결과 검증, 예측 기록 누적까지 자동화한 개인 데이터 파이프라인 프로젝트입니다.
+로또 6/45 당첨 이력을 수집·분석해 다음 회차용 추천 조합을 만들고, 실제 추첨 결과와 비교해 기록하는 개인 데이터 파이프라인입니다.
 
-> 로또는 무작위 추첨입니다. 이 프로젝트는 당첨 확률을 보장하거나 높인다고 주장하지 않습니다.
+> 로또는 각 조합의 당첨 확률이 같은 독립 무작위 추첨입니다. 이 프로젝트의 통계 모델은 당첨을 예측하거나 확률을 높인다고 주장하지 않으며, 과거 분포를 참고해 균형 잡힌 조합을 구성하는 취미용 도구입니다.
 
-번호 생성은 랜덤 시드 방식이 아니라, 과거 데이터에서 만든 후보군을 점수화해 상위 조합부터 반환하는 결정론적 방식입니다.
+## 동작 방식
 
-운영 흐름은 매 요청마다 계산하는 방식이 아닙니다.
+1. 동행복권 데이터로 `lotto_draws`를 최신 상태로 동기화합니다.
+2. 아직 확인하지 않은 추천 기록을 실제 당첨 번호와 비교합니다.
+3. 다음 회차 추천 5조합을 생성해 `lotto_predictions`에 저장합니다.
+4. 화면은 저장된 최신 추천과 과거 적중 결과를 조회합니다.
 
-1. Docker 백엔드가 로또/연금720 스케줄을 따로 실행합니다.
-2. 로또는 동행복권 페이지를 통해 최신 회차를 확인하고, 연금720는 공식 JSON endpoint를 통해 최신 회차를 확인합니다.
-3. 지난 추천 기록이 있으면 실제 당첨 번호와 비교해 적중 결과를 갱신합니다.
-4. 다음 회차용 추천 5조합을 Supabase `lotto_predictions`에 저장합니다.
-5. 화면은 저장된 추천 기록만 조회해서 보여줍니다.
+같은 회차의 추천이 이미 있으면 새로 생성하지 않습니다. Docker 백엔드는 매일 최신 상태를 점검하고, Vercel Cron은 토요일 추첨 이후 동기화·결과 확인·다음 회차 생성을 순서대로 실행합니다.
 
-연금복권720+도 별도 흐름으로 운영할 수 있습니다.
+## 추천 모델 v2
 
-1. 과거 320회 이상 당첨 데이터를 분석 재료로 사용합니다.
-2. 최신 당첨 회차 기준으로 다음 회차용 예측 5개를 Supabase `pension720_predictions`에 저장합니다.
-3. 추첨 후 실제 당첨번호와 비교해 등수/끝수 일치 결과를 기록합니다.
-4. 화면은 연금720 예측 기록과 실제 결과를 따로 보여줍니다.
-5. 통계와 히스토리는 `예측을 생성한 회차부터` 누적 기록만 기준으로 계산합니다.
+추천 모델은 결정론적으로 동작하므로 같은 당첨 이력에서는 같은 결과를 반환합니다.
 
-## Stack
+- 장기 빈도와 최근 회차에 더 큰 비중을 주는 감쇠 빈도를 함께 사용
+- 데이터가 적거나 특정 번호가 과도하게 부각되지 않도록 사전 확률로 보정
+- 함께 출현한 번호 쌍과 합계·홀짝·저고·번호 폭·연속수·끝수 분포 반영
+- 후보 번호를 숫자 오름차순으로 잘라 큰 번호가 탈락하던 기존 편향 제거
+- 최종 추천끼리 번호가 지나치게 겹치지 않도록 다양성 페널티 적용
+- Next.js와 FastAPI가 같은 v2 계산 기준을 사용
 
-- Next.js App Router
-- Vercel Functions
-- FastAPI backend for Docker deployment
+모델 구현은 런타임별로 분리되어 있습니다.
+
+- Next.js: `lib/lottoModel.js`
+- FastAPI: `backend/app/lotto_model.py`
+- 결과 비교와 공개 인터페이스: `lib/picker.js`, `backend/app/picker.py`
+
+## 기술 구성
+
+- Next.js App Router / Vercel Functions
+- FastAPI / APScheduler
 - Supabase Postgres
-- Supabase에 저장한 회차 캐시
-- Playwright (로또 회차 확인용)
-- 동행복권 연금720 공식 JSON endpoint
+- Playwright 기반 동행복권 조회 fallback
 
-## Supabase Table
+## Supabase 테이블
 
-Supabase SQL Editor에서 실행하세요.
+Supabase SQL Editor에서 실행합니다.
 
 ```sql
-create table lotto_predictions (
+create table if not exists lotto_draws (
+  draw_no integer primary key,
+  numbers integer[] not null,
+  bonus_number integer not null,
+  draw_date date,
+  synced_at timestamptz not null default now()
+);
+
+alter table lotto_draws enable row level security;
+
+create policy "public can read lotto draws"
+on lotto_draws
+for select
+to anon
+using (true);
+
+grant select on table lotto_draws to anon;
+grant select, insert, update, delete on table lotto_draws to service_role;
+
+create table if not exists lotto_predictions (
   id uuid primary key default gen_random_uuid(),
   target_draw_no integer not null unique,
   picks jsonb not null,
@@ -58,71 +82,11 @@ using (true);
 
 grant select on table lotto_predictions to anon;
 grant select, insert, update, delete on table lotto_predictions to service_role;
-
-create table if not exists lotto_draws (
-  draw_no integer primary key,
-  numbers integer[] not null,
-  bonus_number integer not null,
-  draw_date date,
-  synced_at timestamptz not null default now()
-);
-
-alter table lotto_draws enable row level security;
-
-create policy "public can read lotto draws"
-on lotto_draws
-for select
-to anon
-using (true);
-
-grant select on table lotto_draws to anon;
-grant select, insert, update, delete on table lotto_draws to service_role;
-
-create table if not exists pension720_draws (
-  draw_no integer primary key,
-  draw_group text not null,
-  winning_number text not null,
-  digits integer[] not null,
-  draw_date date,
-  synced_at timestamptz not null default now()
-);
-
-alter table pension720_draws enable row level security;
-
-create policy "public can read pension720 draws"
-on pension720_draws
-for select
-to anon
-using (true);
-
-grant select on table pension720_draws to anon;
-grant select, insert, update, delete on table pension720_draws to service_role;
-
-create table if not exists pension720_predictions (
-  id uuid primary key default gen_random_uuid(),
-  target_draw_no integer not null unique,
-  picks jsonb not null,
-  generated_at timestamptz not null default now(),
-  winning_group text,
-  winning_number text,
-  winning_digits integer[],
-  match_results jsonb,
-  checked_at timestamptz
-);
-
-alter table pension720_predictions enable row level security;
-
-create policy "public can read pension720 predictions"
-on pension720_predictions
-for select
-to anon
-using (true);
-
-grant select on table pension720_predictions to anon;
-grant select, insert, update, delete on table pension720_predictions to service_role;
 ```
 
-## Environment Variables
+## 환경변수
+
+`.env.example`을 참고해 `.env.local`을 구성합니다.
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=
@@ -130,100 +94,71 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 SUPABASE_SECRET_KEY=
 CRON_SECRET=
 NEXT_PUBLIC_API_BASE_URL=
-```
 
-`SUPABASE_SECRET_KEY`는 Vercel 서버 함수에서만 사용합니다. 브라우저에 노출하지 마세요.
-`NEXT_PUBLIC_API_BASE_URL`은 프론트가 별도 백엔드를 볼 때만 설정합니다. 공개 예시 주소는 `https://lotto-play-picker.vercel.app` 처럼 두는 편이 안전합니다.
-
-백엔드 자동 스케줄러를 함께 쓸 경우:
-
-```bash
 ENABLE_LOTTO_SCHEDULER=true
 LOTTO_SCHEDULER_CRON=0 0 * * *
-ENABLE_PENSION720_SCHEDULER=true
-PENSION720_SCHEDULER_CRON=10 0 * * *
 WEEKLY_SCHEDULER_TIMEZONE=Asia/Seoul
 ```
 
-기본 동작:
+- `SUPABASE_SECRET_KEY`는 서버에서만 사용하고 브라우저에 노출하지 않습니다.
+- `NEXT_PUBLIC_API_BASE_URL`은 프론트엔드와 FastAPI를 별도 배포할 때만 설정합니다.
+- 기존 `ENABLE_WEEKLY_SCHEDULER`, `WEEKLY_SCHEDULER_CRON`도 하위 호환용으로 인식합니다.
 
-- 로또 6/45: 매일 `00:00` 점검 후 누락 시 자동 갱신
-- 연금복권720+: 매일 `00:10` 점검 후 누락 시 자동 갱신
-- 공통 시간대: `WEEKLY_SCHEDULER_TIMEZONE=Asia/Seoul`
-
-하위 호환을 위해 기존 `ENABLE_WEEKLY_SCHEDULER`, `WEEKLY_SCHEDULER_CRON`도 남아 있지만, 이제는 위의 게임별 스케줄 환경변수를 우선 사용하는 편이 맞습니다. 스케줄러는 지정 시각에 `ensure`를 실행하고, 이미 최신 상태면 아무 작업도 하지 않습니다.
-
-## Local Development
+## 로컬 실행
 
 ```bash
 npm install
 npm run dev
 ```
 
-## Docker Backend
+로또 XLSX 초기 데이터를 Supabase에 넣을 때는 루트의 `lotto.xlsx`와 `.env.local`을 준비한 뒤 실행합니다.
 
-OCI 서버에서는 FastAPI 백엔드만 Docker로 띄울 수 있습니다.
+```bash
+python3 scripts/import_lotto_xlsx.py
+```
+
+## Docker 백엔드
 
 ```bash
 docker compose up -d --build
 ```
 
-기본 포트 매핑은 컨테이너의 `8000` 포트를 외부에서 접근 가능한 내부 포트로 연결하는 방식입니다. 운영 환경에서는 reverse proxy 또는 gateway를 통해 HTTPS 도메인으로 노출하는 구성을 권장합니다.
+기본 포트는 호스트 `8020`에서 컨테이너 `8000`으로 연결됩니다. 운영 환경에서는 reverse proxy 또는 gateway를 통해 HTTPS로 노출하는 구성을 권장합니다.
 
-기본 설정에서는 Docker 컨테이너 안에서 아래 두 점검 스케줄이 각각 자동 실행됩니다.
+Docker 스케줄러는 기본적으로 매일 `00:00 (Asia/Seoul)`에 최신 상태를 확인합니다. 이미 회차 데이터와 다음 추천이 준비되어 있으면 아무 작업도 하지 않습니다.
 
-- 로또: `매일 00:00 (Asia/Seoul)`
-- 연금720: `매일 00:10 (Asia/Seoul)`
-
-현재 운영 구성에서는 `/api/...` 요청을 Vercel Functions가 아니라 FastAPI 백엔드가 직접 처리할 수 있습니다. 따라서 실제 운영 기준 API 반영은 `docker compose up -d --build` 후 컨테이너 재시작이 필요할 수 있습니다.
-
-수동 실행:
+## 수동 유지보수
 
 ```bash
 curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto-play-picker.vercel.app/api/sync-draws
-curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto-play-picker.vercel.app/api/generate-weekly
 curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto-play-picker.vercel.app/api/check-result
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto-play-picker.vercel.app/api/generate-weekly
 curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto-play-picker.vercel.app/api/run-weekly-maintenance
 ```
 
-연금720 수동 실행:
+## API
 
-```bash
-curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto-play-picker.vercel.app/api/sync-pension720-draws
-curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto-play-picker.vercel.app/api/check-pension720-result
-curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://lotto-play-picker.vercel.app/api/generate-pension720-weekly
-```
+Next.js / Vercel Functions:
 
-확인용 조회:
-
-```bash
-curl https://lotto-play-picker.vercel.app/api/pension720/predictions
-curl https://lotto-play-picker.vercel.app/api/pension720/draws
-```
-
-## API Routes
-
-- `POST /api/generate`: 개발/테스트용 즉석 번호 생성
+- `POST /api/generate`: 저장된 이력을 사용해 즉석 추천 생성
 - `GET /api/predictions`: 저장된 추천 기록 조회
-- `GET /api/pension720/draws`: 저장된 연금720 회차 기록 조회
-- `GET /api/pension720/predictions`: 저장된 연금720 예측 기록 조회
-- `GET /api/cron/sync-draws`: 전체 회차 데이터를 Supabase `lotto_draws`에 동기화
-- `GET /api/cron/sync-pension720`: 최신 연금720 회차를 Supabase `pension720_draws`에 동기화
-- `GET /api/cron/generate-weekly`: 다음 회차 추천 생성 후 Supabase 저장
-- `GET /api/cron/generate-pension720-weekly`: 다음 연금720 회차 예측 5개 생성 후 Supabase 저장
-- `GET /api/cron/check-result`: 당첨 번호 확인 후 추천 결과 업데이트
-- `GET /api/cron/check-pension720-result`: 추첨 결과 확인 후 연금720 예측 결과 업데이트
+- `GET /api/cron/sync-draws`: 누락된 회차 데이터 동기화
+- `GET /api/cron/check-result`: 미확인 추천의 실제 결과 기록
+- `GET /api/cron/generate-weekly`: 다음 회차 추천 생성
 
 FastAPI backend:
 
-- `GET /health`: health check
+- `GET /health`: 상태 확인
 - `GET /api/predictions`: 저장된 추천 기록 조회
-- `GET /api/pension720/draws`: 저장된 연금720 당첨 회차 조회
-- `GET /api/pension720/predictions`: 저장된 연금720 예측 기록 조회
-- `POST /api/sync-draws`: 전체 회차 데이터를 Supabase `lotto_draws`에 동기화
-- `POST /api/sync-pension720-draws`: 최신 연금720 회차를 Supabase `pension720_draws`에 동기화
-- `POST /api/generate-weekly`: 다음 회차 추천 생성 후 Supabase 저장
-- `POST /api/generate-pension720-weekly`: 다음 연금720 회차 예측 생성 후 Supabase 저장
-- `POST /api/check-result`: 당첨 번호 확인 후 추천 결과 업데이트
-- `POST /api/check-pension720-result`: 연금720 추첨 결과 확인 후 예측 결과 업데이트
-- `POST /api/run-weekly-maintenance`: 동기화 -> 결과 확인 -> 다음 회차 추천 생성을 한 번에 실행
+- `POST /api/sync-draws`: 누락 회차 동기화
+- `POST /api/check-result`: 미확인 추천의 실제 결과 기록
+- `POST /api/generate-weekly`: 다음 회차 추천 생성
+- `POST /api/run-weekly-maintenance`: 동기화 → 결과 확인 → 다음 회차 추천 일괄 실행
+
+## Vercel Cron
+
+`vercel.json` 기준으로 토요일 추첨 이후 다음 순서로 실행합니다. 시간은 UTC입니다.
+
+- `12:00`: 회차 동기화
+- `12:05`: 기존 추천 결과 확인
+- `12:10`: 다음 회차 추천 생성

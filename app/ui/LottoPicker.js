@@ -241,7 +241,7 @@ export default function LottoPicker() {
           </div>
 
           <p className="summary">
-            백엔드 작업이 전체 회차 데이터를 분석해 Supabase에 추천 번호 5조합을 저장합니다.
+            v2 모델이 전체 회차 데이터를 분석해 Supabase에 서로 겹침을 줄인 추천 번호 5조합을 저장합니다.
             화면은 저장된 추천과 추첨 후 검증 결과만 불러옵니다.
           </p>
 

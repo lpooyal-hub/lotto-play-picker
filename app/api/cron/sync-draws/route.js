@@ -1,5 +1,4 @@
-import { fetchHistory } from '../../../../lib/dhlottery';
-import { saveDraws } from '../../../../lib/drawStore';
+import { syncDrawHistory } from '../../../../lib/lottoSync';
 
 function assertCronRequest(request) {
   const secret = process.env.CRON_SECRET;
@@ -14,15 +13,8 @@ function assertCronRequest(request) {
 export async function GET(request) {
   try {
     assertCronRequest(request);
-    const draws = await fetchHistory();
-    const saved = await saveDraws(draws);
-
-    return Response.json({
-      ok: true,
-      synced: saved.length,
-      firstDraw: saved[0]?.drawNo,
-      latestDraw: saved[saved.length - 1]?.drawNo,
-    });
+    const result = await syncDrawHistory();
+    return Response.json({ ok: true, ...result });
   } catch (error) {
     const status = error.message === 'Unauthorized' ? 401 : 500;
     return Response.json({ ok: false, error: error.message }, { status });

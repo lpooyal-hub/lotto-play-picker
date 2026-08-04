@@ -18,13 +18,5 @@ class Settings:
     }
     lotto_scheduler_cron = os.getenv("LOTTO_SCHEDULER_CRON", scheduler_cron)
 
-    pension720_scheduler_enabled = os.getenv("ENABLE_PENSION720_SCHEDULER", str(scheduler_enabled)).lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }
-    pension720_scheduler_cron = os.getenv("PENSION720_SCHEDULER_CRON", "10 0 * * *")
-
 
 settings = Settings()

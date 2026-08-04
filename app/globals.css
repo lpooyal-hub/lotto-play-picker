@@ -93,39 +93,6 @@ h3 {
   line-height: 1.6;
 }
 
-.game-tab-bar {
-  display: inline-flex;
-  gap: 8px;
-  margin: 0 0 20px;
-  padding: 6px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.75);
-}
-
-.game-tab {
-  min-height: 40px;
-  padding: 0 14px;
-  border: 1px solid transparent;
-  border-radius: 10px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 0.9rem;
-  font-weight: 900;
-}
-
-.game-tab:hover {
-  background: #fff;
-  color: var(--ink);
-}
-
-.game-tab.active {
-  background: #fff;
-  border-color: var(--line);
-  color: var(--ink);
-  box-shadow: 0 10px 24px rgba(31, 38, 52, 0.08);
-}
-
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -408,48 +375,6 @@ button.secondary {
   height: 30px;
 }
 
-.pension-number-text {
-  color: var(--ink);
-  font-size: 0.92rem;
-  line-height: 1;
-}
-
-.pension-winning-row,
-.pension-pick-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.pension-group-chip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 52px;
-  min-height: 32px;
-  padding: 0 10px;
-  border-radius: 999px;
-  background: #eef4f7;
-  color: var(--accent);
-  font-size: 0.78rem;
-  font-weight: 900;
-  border: 1px solid transparent;
-}
-
-.pension-group-chip.matched {
-  border-color: #356245;
-  box-shadow: 0 0 0 3px rgba(53, 98, 69, 0.12);
-  color: #234532;
-}
-
-.pension-number-inline {
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 900;
-  letter-spacing: 0.06em;
-}
-
 .match-badge {
   display: inline-flex;
   align-items: center;
@@ -576,16 +501,6 @@ button.secondary {
   list-style: none;
 }
 
-.pension-guide-list {
-  display: grid;
-  gap: 10px;
-  margin: 0;
-  padding-left: 18px;
-  color: var(--muted);
-  font-size: 0.88rem;
-  line-height: 1.6;
-}
-
 .winning-summary.compact {
   margin-bottom: 0;
 }
@@ -606,12 +521,6 @@ button.secondary {
     padding: 32px 0;
   }
 
-  .game-tab-bar {
-    display: grid;
-    width: 100%;
-    grid-template-columns: 1fr 1fr;
-  }
-
   .field-grid {
     grid-template-columns: 1fr;
   }
@@ -625,8 +534,6 @@ button.secondary {
   }
 
   .winning-row,
-  .pension-winning-row,
-  .pension-pick-row,
   .winning-summary-header,
   .result-meta {
     flex-direction: column;
