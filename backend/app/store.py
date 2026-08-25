@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import requests
 
 from .config import settings
+from .lotto_prizes import normalize_match_results
 
 MIN_ANALYSIS_DRAWS = 100
 SUPABASE_PAGE_SIZE = 1000
@@ -102,7 +103,14 @@ def assert_enough_draws(draws: list[dict]) -> None:
 
 
 def fetch_predictions(limit: int = 20) -> list[dict]:
-    return _request("GET", f"lotto_predictions?select=*&order=target_draw_no.desc&limit={limit}") or []
+    rows = _request("GET", f"lotto_predictions?select=*&order=target_draw_no.desc&limit={limit}") or []
+    return [
+        {
+            **row,
+            "match_results": normalize_match_results(row.get("match_results")),
+        }
+        for row in rows
+    ]
 
 
 def fetch_prediction_by_draw(target_draw_no: int) -> dict | None:
