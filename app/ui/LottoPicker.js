@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 
+import { resolvePrizeAmount } from '../../lib/lottoPrizes';
+
 function ballTier(number) {
   if (number <= 10) return 1;
   if (number <= 20) return 2;
@@ -70,7 +72,10 @@ function computeStats(predictions) {
   const checkedPredictions = predictions.filter((prediction) => prediction.checked_at);
   const settledResults = checkedPredictions.flatMap((prediction) => prediction.match_results || []);
   const winningResults = settledResults.filter((result) => result?.rank);
-  const totalPrize = winningResults.reduce((sum, result) => sum + (result.prizeAmount || 0), 0);
+  const totalPrize = winningResults.reduce(
+    (sum, result) => sum + resolvePrizeAmount(result.rank, result.prizeAmount),
+    0,
+  );
   const bestRank = winningResults
     .map((result) => result.rank)
     .sort((left, right) => Number(left.replace("등", "")) - Number(right.replace("등", "")))[0] || '기록 없음';
@@ -126,6 +131,7 @@ function WinningSummary({ prediction }) {
 
 function PredictionPickCard({ pick, index, result, winningNumbers = [], showResult = false }) {
   const matchedNumbers = showResult ? matchedNumbersFromResult(result, winningNumbers) : [];
+  const prizeAmount = resolvePrizeAmount(result?.rank, result?.prizeAmount);
 
   return (
     <li key={pick.join('-')} className="result-item">
@@ -133,8 +139,8 @@ function PredictionPickCard({ pick, index, result, winningNumbers = [], showResu
         <span>Pick {index + 1}</span>
         <div className="result-meta-right">
           {showResult ? <MatchBadge result={result} /> : null}
-          {showResult && result?.rank && result?.prizeAmount ? (
-            <span className="prize-chip">{formatPrizeAmount(result.prizeAmount)}원</span>
+          {showResult && result?.rank && prizeAmount ? (
+            <span className="prize-chip">{formatPrizeAmount(prizeAmount)}원</span>
           ) : null}
           <span>sum {pick.reduce((acc, number) => acc + number, 0)}</span>
         </div>
