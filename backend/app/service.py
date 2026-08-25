@@ -4,10 +4,12 @@ import logging
 
 from .dhlottery import (
     fetch_draw_with_fallback,
+    fetch_draw_with_prizes,
     fetch_history,
     find_latest_draw_no,
     find_latest_draw_no_from_known,
 )
+from .lotto_prizes import has_unresolved_variable_prize
 from .picker import (
     compare_pick_with_draw,
     generate_combinations,
@@ -91,6 +93,17 @@ def check_prediction_results() -> list[dict]:
             continue
 
         match_results = [compare_pick_with_draw(pick, draw) for pick in prediction["picks"]]
+        if has_unresolved_variable_prize(match_results):
+            prize_draw = fetch_draw_with_prizes(prediction["target_draw_no"])
+            if prize_draw:
+                draw = prize_draw
+                match_results = [compare_pick_with_draw(pick, draw) for pick in prediction["picks"]]
+        if has_unresolved_variable_prize(match_results):
+            logger.warning(
+                "Lotto result check deferred: variable prize data unavailable for draw %s",
+                prediction["target_draw_no"],
+            )
+            continue
         checked.append(update_prediction_result(prediction["id"], draw, match_results))
 
     return checked
