@@ -110,6 +110,18 @@ def pair_key(first: int, second: int) -> str:
     return f"{min(first, second)}-{max(first, second)}"
 
 
+def build_pair_matrix(pair_scores: dict[str, float]) -> list[list[float]]:
+    matrix = [[0.0] * (MAX_NUMBER + 1) for _ in range(MAX_NUMBER + 1)]
+    for first in range(1, MAX_NUMBER + 1):
+        for second in range(first + 1, MAX_NUMBER + 1):
+            matrix[first][second] = pair_scores.get(pair_key(first, second), 0.0)
+    return matrix
+
+
+def build_number_score_list(number_scores: dict[int, float]) -> list[float]:
+    return [0.0] + [number_scores.get(number, 0.0) for number in range(1, MAX_NUMBER + 1)]
+
+
 def build_pair_scores(draws: list[dict]) -> dict[str, float]:
     long_counts = {pair_key(first, second): 0.0 for first in range(1, MAX_NUMBER + 1) for second in range(first + 1, MAX_NUMBER + 1)}
     recent_counts = {key: 0.0 for key in long_counts}
@@ -164,18 +176,41 @@ def bell_score(value: float, average: float, deviation: float) -> float:
     return exp(-0.5 * z_score ** 2)
 
 
-def combination_quality(numbers: tuple[int, ...], number_scores: dict[int, float], pair_scores: dict[str, float], shape_model: dict) -> float:
-    pair_values = [pair_scores.get(pair_key(first, second), 0) for first, second in combinations(numbers, 2)]
-    total = sum(numbers)
-    odd_count = len([number for number in numbers if number % 2])
-    low_count = len([number for number in numbers if number <= 22])
-    spread = numbers[-1] - numbers[0]
-    consecutive_count = count_consecutive_pairs(numbers)
-    unique_last_digits = len({number % 10 for number in numbers})
+def combination_quality(numbers: tuple[int, ...], number_scores: list[float], pair_matrix: list[list[float]], shape_model: dict) -> float:
+    # Hot path: called once per candidate combo (hundreds of thousands of times per
+    # generate_combinations() call), so this avoids the per-call overhead of
+    # itertools/listcomp/mean() in favor of a flat unrolled pass over the fixed
+    # PICK_SIZE=6 numbers. Behaviorally identical to summing pair_matrix/number_scores
+    # over all C(6,2) pairs and all 6 numbers.
+    n0, n1, n2, n3, n4, n5 = numbers
+    total = n0 + n1 + n2 + n3 + n4 + n5
+    score_mean = (
+        number_scores[n0] + number_scores[n1] + number_scores[n2]
+        + number_scores[n3] + number_scores[n4] + number_scores[n5]
+    ) / PICK_SIZE
+
+    row0 = pair_matrix[n0]
+    row1 = pair_matrix[n1]
+    row2 = pair_matrix[n2]
+    row3 = pair_matrix[n3]
+    row4 = pair_matrix[n4]
+    pair_mean = (
+        row0[n1] + row0[n2] + row0[n3] + row0[n4] + row0[n5]
+        + row1[n2] + row1[n3] + row1[n4] + row1[n5]
+        + row2[n3] + row2[n4] + row2[n5]
+        + row3[n4] + row3[n5]
+        + row4[n5]
+    ) / 15
+
+    odd_count = (n0 & 1) + (n1 & 1) + (n2 & 1) + (n3 & 1) + (n4 & 1) + (n5 & 1)
+    low_count = (n0 <= 22) + (n1 <= 22) + (n2 <= 22) + (n3 <= 22) + (n4 <= 22) + (n5 <= 22)
+    spread = n5 - n0
+    consecutive_count = (n1 - n0 == 1) + (n2 - n1 == 1) + (n3 - n2 == 1) + (n4 - n3 == 1) + (n5 - n4 == 1)
+    unique_last_digits = len({n0 % 10, n1 % 10, n2 % 10, n3 % 10, n4 % 10, n5 % 10})
 
     return (
-        mean([number_scores.get(number, 0) for number in numbers]) * 0.34
-        + mean(pair_values) * 0.12
+        score_mean * 0.34
+        + pair_mean * 0.12
         + bell_score(total, shape_model["sumMean"], shape_model["sumStdev"]) * 0.18
         + shape_model["odd"].get(odd_count, 0) * 0.09
         + shape_model["low"].get(low_count, 0) * 0.09
@@ -210,13 +245,12 @@ def build_candidate_pool(number_model: dict) -> list[int]:
     return sorted(pool)
 
 
-def build_shortlist(pool: list[int], historical_sets: set[str], number_scores: dict[int, float], pair_scores: dict[str, float], shape_model: dict) -> list[dict]:
+def build_shortlist(pool: list[int], historical_sets: set[tuple[int, ...]], number_scores: list[float], pair_matrix: list[list[float]], shape_model: dict) -> list[dict]:
     shortlist = []
     for combo in combinations(pool, PICK_SIZE):
-        key = ",".join(map(str, combo))
-        if key in historical_sets:
+        if combo in historical_sets:
             continue
-        shortlist.append({"combo": list(combo), "quality": combination_quality(combo, number_scores, pair_scores, shape_model)})
+        shortlist.append({"combo": list(combo), "quality": combination_quality(combo, number_scores, pair_matrix, shape_model)})
         if len(shortlist) >= SHORTLIST_SIZE * 2:
             shortlist.sort(key=lambda candidate: (-candidate["quality"], candidate["combo"]))
             del shortlist[SHORTLIST_SIZE:]
@@ -262,6 +296,8 @@ def generate_combinations(draws: list[dict], count: int = 5) -> list[list[int]]:
     pair_scores = build_pair_scores(history)
     shape_model = build_shape_model(history)
     pool = build_candidate_pool(number_model)
-    historical_sets = {",".join(map(str, draw["numbers"])) for draw in history}
-    shortlist = build_shortlist(pool, historical_sets, number_model["scores"], pair_scores, shape_model)
+    number_score_list = build_number_score_list(number_model["scores"])
+    pair_matrix = build_pair_matrix(pair_scores)
+    historical_sets = {tuple(draw["numbers"]) for draw in history}
+    shortlist = build_shortlist(pool, historical_sets, number_score_list, pair_matrix, shape_model)
     return select_diversified(shortlist, max(1, min(int(count or 5), 20)))
