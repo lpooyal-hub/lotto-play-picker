@@ -62,6 +62,13 @@ def fetch_draw_with_fallback(draw_no: int) -> dict | None:
     return fetch_draw_with_playwright(draw_no)
 
 
+def fetch_draw_with_prizes(draw_no: int) -> dict | None:
+    draw = fetch_draw_with_playwright(draw_no)
+    if not draw or not draw.get("prizes"):
+        return None
+    return draw
+
+
 def find_latest_draw_no_from_known(known_draw_no: int) -> int:
     latest = known_draw_no
     candidate = known_draw_no + 1

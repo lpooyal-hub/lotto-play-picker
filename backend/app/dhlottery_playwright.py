@@ -24,7 +24,7 @@ def _parse_amount(value: str) -> int | None:
     return int(digits) if digits else None
 
 
-def fetch_recent_draws_with_playwright() -> list[dict]:
+def fetch_recent_draws_with_playwright(selected_draw_no: int | None = None) -> list[dict]:
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
         page = browser.new_page(
@@ -37,7 +37,8 @@ def fetch_recent_draws_with_playwright() -> list[dict]:
         )
 
         try:
-            page.goto(RESULT_URL, wait_until="domcontentloaded", timeout=30000)
+            result_url = f"{RESULT_URL}?ltEpsd={selected_draw_no}" if selected_draw_no else RESULT_URL
+            page.goto(result_url, wait_until="domcontentloaded", timeout=30000)
             page.wait_for_selector(".result-infoWrap", timeout=15000)
 
             cards = page.locator(".result-infoWrap")
@@ -98,7 +99,7 @@ def fetch_recent_draws_with_playwright() -> list[dict]:
 
 
 def fetch_draw_with_playwright(draw_no: int) -> dict | None:
-    for draw in fetch_recent_draws_with_playwright():
+    for draw in fetch_recent_draws_with_playwright(selected_draw_no=draw_no):
         if draw["drawNo"] == draw_no:
             return draw
     return None
