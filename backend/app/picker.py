@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .lotto_model import LOTTO_MODEL_VERSION, generate_combinations
+from .lotto_prizes import resolve_prize_amount
 
 __all__ = ["LOTTO_MODEL_VERSION", "compare_pick_with_draw", "generate_combinations"]
 
@@ -25,6 +26,7 @@ def compare_pick_with_draw(pick: list[int], draw: dict) -> dict:
     prizes = draw.get("prizes") or {}
     if rank:
         prize = prizes.get(rank, {}).get("amount")
+    prize = resolve_prize_amount(rank, prize)
 
     return {
         "pick": pick,
