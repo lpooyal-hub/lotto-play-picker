@@ -3,13 +3,11 @@ from __future__ import annotations
 from itertools import combinations
 from math import exp, sqrt
 
-MAX_NUMBER = 45
-PICK_SIZE = 6
+from .lotto_number_model import MAX_NUMBER, PICK_SIZE, build_number_rates
+
 CANDIDATE_POOL_SIZE = 28
 SHORTLIST_SIZE = 700
-BASE_NUMBER_RATE = PICK_SIZE / MAX_NUMBER
-BASE_PAIR_RATE = (PICK_SIZE * (PICK_SIZE - 1)) / (MAX_NUMBER * (MAX_NUMBER - 1))
-LOTTO_MODEL_VERSION = "2.0"
+LOTTO_MODEL_VERSION = "2.1"
 
 
 def mean(values: list[float]) -> float:
@@ -57,55 +55,6 @@ def canonical_draws(draws: list[dict]) -> list[dict]:
     return normalized
 
 
-def build_weighted_number_rates(draws: list[dict], half_life: float | None, prior_strength: float) -> dict[int, float]:
-    counts = {number: 0.0 for number in range(1, MAX_NUMBER + 1)}
-    total_weight = 0.0
-
-    for index, draw in enumerate(draws):
-        age = len(draws) - index - 1
-        weight = 1.0 if half_life is None else 2 ** (-age / half_life)
-        total_weight += weight
-        for number in draw["numbers"]:
-            counts[number] += weight
-
-    return {
-        number: (count + prior_strength * BASE_NUMBER_RATE) / (total_weight + prior_strength)
-        for number, count in counts.items()
-    }
-
-
-def build_number_model(draws: list[dict]) -> dict:
-    all_time_rates = build_weighted_number_rates(draws, None, 24)
-    medium_rates = build_weighted_number_rates(draws, 104, 16)
-    recent_rates = build_weighted_number_rates(draws, 36, 12)
-    reversed_draws = list(reversed(draws))
-    gaps = {}
-
-    for number in range(1, MAX_NUMBER + 1):
-        gap = next((index + 1 for index, draw in enumerate(reversed_draws) if number in draw["numbers"]), len(draws) + 1)
-        gaps[number] = min(gap, 24)
-
-    long_rank = rank_normalize(all_time_rates)
-    medium_rank = rank_normalize(medium_rates)
-    recent_rank = rank_normalize(recent_rates)
-    gap_rank = rank_normalize(gaps)
-    scores = {
-        number: long_rank[number] * 0.3
-        + medium_rank[number] * 0.24
-        + recent_rank[number] * 0.39
-        + gap_rank[number] * 0.07
-        for number in range(1, MAX_NUMBER + 1)
-    }
-
-    return {
-        "scores": scores,
-        "allTimeRates": all_time_rates,
-        "mediumRates": medium_rates,
-        "recentRates": recent_rates,
-        "gaps": gaps,
-    }
-
-
 def pair_key(first: int, second: int) -> str:
     return f"{min(first, second)}-{max(first, second)}"
 
@@ -123,25 +72,17 @@ def build_number_score_list(number_scores: dict[int, float]) -> list[float]:
 
 
 def build_pair_scores(draws: list[dict]) -> dict[str, float]:
-    long_counts = {pair_key(first, second): 0.0 for first in range(1, MAX_NUMBER + 1) for second in range(first + 1, MAX_NUMBER + 1)}
-    recent_counts = {key: 0.0 for key in long_counts}
-    recent_weight_total = 0.0
+    counts = {
+        pair_key(first, second): 0
+        for first in range(1, MAX_NUMBER + 1)
+        for second in range(first + 1, MAX_NUMBER + 1)
+    }
 
-    for index, draw in enumerate(draws):
-        age = len(draws) - index - 1
-        recent_weight = 2 ** (-age / 52)
-        recent_weight_total += recent_weight
+    for draw in draws:
         for first, second in combinations(draw["numbers"], 2):
-            key = pair_key(first, second)
-            long_counts[key] += 1
-            recent_counts[key] += recent_weight
+            counts[pair_key(first, second)] += 1
 
-    blended = {}
-    for key in long_counts:
-        long_rate = (long_counts[key] + 30 * BASE_PAIR_RATE) / (len(draws) + 30)
-        recent_rate = (recent_counts[key] + 18 * BASE_PAIR_RATE) / (recent_weight_total + 18)
-        blended[key] = long_rate * 0.42 + recent_rate * 0.58
-    return rank_normalize(blended)
+    return rank_normalize(counts)
 
 
 def build_histogram(values: list[int]) -> dict[int, float]:
@@ -226,14 +167,10 @@ def numbers_by_metric(metric: dict[int, float], reverse: bool = True) -> list[in
     return sorted(range(1, MAX_NUMBER + 1), key=lambda number: (metric.get(number, 0), number))
 
 
-def build_candidate_pool(number_model: dict) -> list[int]:
+def build_candidate_pool(number_rates: dict[int, float], all_time_rates: dict[int, float]) -> list[int]:
     rankings = [
-        numbers_by_metric(number_model["scores"]),
-        numbers_by_metric(number_model["recentRates"]),
-        numbers_by_metric(number_model["mediumRates"]),
-        numbers_by_metric(number_model["allTimeRates"]),
-        numbers_by_metric(number_model["gaps"]),
-        numbers_by_metric(number_model["allTimeRates"], reverse=False),
+        numbers_by_metric(number_rates),
+        numbers_by_metric(all_time_rates, reverse=False),
     ]
     pool: set[int] = set()
 
@@ -292,11 +229,11 @@ def select_diversified(shortlist: list[dict], count: int) -> list[list[int]]:
 
 def generate_combinations(draws: list[dict], count: int = 5) -> list[list[int]]:
     history = canonical_draws(draws)
-    number_model = build_number_model(history)
+    all_time_rates, number_rates = build_number_rates(history)
     pair_scores = build_pair_scores(history)
     shape_model = build_shape_model(history)
-    pool = build_candidate_pool(number_model)
-    number_score_list = build_number_score_list(number_model["scores"])
+    pool = build_candidate_pool(number_rates, all_time_rates)
+    number_score_list = build_number_score_list(rank_normalize(number_rates))
     pair_matrix = build_pair_matrix(pair_scores)
     historical_sets = {tuple(draw["numbers"]) for draw in history}
     shortlist = build_shortlist(pool, historical_sets, number_score_list, pair_matrix, shape_model)

@@ -56,15 +56,15 @@ def sync_draws() -> dict:
     }
 
 
-def load_analysis_draws() -> list[dict]:
+def load_analysis_draws(target_draw_no: int) -> list[dict]:
     draws = fetch_stored_draws()
-    if draws:
-        assert_enough_draws(draws)
-        return draws
+    if not draws:
+        draws = fetch_history()
+        save_draws(draws)
 
-    draws = fetch_history()
-    save_draws(draws)
-    return draws
+    analysis_draws = [draw for draw in draws if draw["drawNo"] < target_draw_no]
+    assert_enough_draws(analysis_draws)
+    return analysis_draws
 
 
 def generate_weekly_prediction() -> dict:
@@ -75,7 +75,7 @@ def generate_weekly_prediction() -> dict:
     if existing:
         return existing
 
-    draws = load_analysis_draws()
+    draws = load_analysis_draws(target_draw_no)
     picks = generate_combinations(draws, count=5)
     return insert_prediction(target_draw_no, picks)
 
